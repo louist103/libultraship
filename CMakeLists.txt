@@ -18,8 +18,8 @@ include(cmake/Utils.cmake)
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND USE_AUTO_VCPKG)
     include(cmake/automate-vcpkg.cmake)
 
-    set(VCPKG_TRIPLET x64-windows-static)
-    set(VCPKG_TARGET_TRIPLET x64-windows-static)
+    set(VCPKG_TRIPLET x86-windows-static)
+    set(VCPKG_TARGET_TRIPLET x86-windows-static)
 
     vcpkg_bootstrap()
     vcpkg_install_packages(zlib bzip2 sdl2 glew)
