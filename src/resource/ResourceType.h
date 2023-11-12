@@ -25,6 +25,7 @@ enum class ResourceType {
     SOH_Path = 0x4F505448,            // OPTH
     SOH_Cutscene = 0x4F435654,        // OCUT
     SOH_Text = 0x4F545854,            // OTXT
+    SOH_TextMM = 0x4F54584D,          // OTXM
     SOH_Audio = 0x4F415544,           // OAUD
     SOH_AudioSample = 0x4F534D50,     // OSMP
     SOH_AudioSoundFont = 0x4F534654,  // OSFT
