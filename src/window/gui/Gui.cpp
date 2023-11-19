@@ -16,6 +16,8 @@
 #include <stb/stb_image.h>
 #include "window/gui/Fonts.h"
 
+#include "window/gui/GfxDebuggerWindow.h"
+
 #ifdef __WIIU__
 #include <gx2/registers.h> // GX2SetViewport / GX2SetScissor
 
@@ -69,6 +71,7 @@ Gui::Gui() : mNeedsConsoleVariableSave(false) {
     AddGuiWindow(std::make_shared<StatsWindow>("gStatsEnabled", "Stats"));
     AddGuiWindow(std::make_shared<InputEditorWindow>("gControllerConfigurationEnabled", "Input Editor"));
     AddGuiWindow(std::make_shared<ConsoleWindow>("gConsoleEnabled", "Console"));
+    AddGuiWindow(std::make_shared<GfxDebuggerWindow>("gGfxDebuggerEnabled", "GfxDebuggerWindow"));
 }
 
 Gui::~Gui() {
@@ -128,6 +131,7 @@ void Gui::Init(GuiWindowInitData windowImpl) {
     GetGuiWindow("Stats")->Init();
     GetGuiWindow("Input Editor")->Init();
     GetGuiWindow("Console")->Init();
+    GetGuiWindow("GfxDebuggerWindow")->Init();
     GetGameOverlay()->Init();
 
     ImGuiWMInit();
