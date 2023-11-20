@@ -8,37 +8,21 @@ namespace LUS {
 
 class GfxDebugger {
   public:
-    void RequestDebugging() {
-        mIsDebuggingRequested = true;
-    }
-    bool IsDebugging() const {
-        return mIsDebugging;
-    }
-    bool IsDebuggingRequested() const {
-        return mIsDebuggingRequested;
-    }
+    void RequestDebugging();
+    bool IsDebugging() const;
+    bool IsDebuggingRequested() const;
 
     void DebugDisplayList(Gfx* cmds);
 
-    void ResumeGame() {
-        mIsDebugging = false;
-        mIsDebuggingRequested = false;
-        mDlist = nullptr;
-    }
+    void ResumeGame();
 
-    const Gfx* GetDisplayList() const {
-        return mDlist;
-    }
+    const Gfx* GetDisplayList() const;
 
-    const std::vector<const Gfx*>& GetBreakPoint() const {
-        return mBreakPoint;
-    }
+    const std::vector<const Gfx*>& GetBreakPoint() const;
 
     bool HasBreakPoint(const std::vector<const Gfx*>& path) const;
 
-    void SetBreakPoint(const std::vector<const Gfx*>& bp) {
-        mBreakPoint = bp;
-    }
+    void SetBreakPoint(const std::vector<const Gfx*>& bp);
 
   private:
     bool mIsDebugging = false;
