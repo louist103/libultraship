@@ -17,6 +17,7 @@
 #include "window/gui/GuiWindow.h"
 #include "window/gui/GuiMenuBar.h"
 #include "libultraship/libultra/controller.h"
+#include "resource/type/Texture.h"
 
 namespace LUS {
 
@@ -74,6 +75,8 @@ class Gui {
     void RemoveGuiWindow(std::shared_ptr<GuiWindow> guiWindow);
     void RemoveGuiWindow(const std::string& name);
     void LoadGuiTexture(const std::string& name, const std::string& path, const ImVec4& tint);
+    void LoadGuiTexture(const std::string& name, const LUS::Texture& tex, const ImVec4& tint);
+    void UnloadTexture(const std::string& name);
     ImTextureID GetTextureByName(const std::string& name);
     bool SupportsViewports();
     std::shared_ptr<GuiWindow> GetGuiWindow(const std::string& name);
