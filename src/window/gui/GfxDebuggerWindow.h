@@ -3,6 +3,7 @@
 #include "window/gui/GuiWindow.h"
 #include "libultraship/libultra/gbi.h"
 #include <vector>
+#include <graphic/Fast3D/gfx_pc.h>
 
 namespace LUS {
 
@@ -17,11 +18,12 @@ class GfxDebuggerWindow : public GuiWindow {
     void DrawElement() override;
 
   private:
-    void DrawDisasNode(const Gfx* cmd, std::vector<const Gfx*>& gfx_path) const;
+    void DrawDisasNode(const Gfx* cmd, GfxPath& gfx_path) const;
     void DrawDisas();
 
   private:
-    std::vector<const Gfx*> mLastBreakPoint = {};
+    GfxPath mLastBreakPoint = {};
+    char mPopupInpuBuf[256] = { 0 };
 };
 
 } // namespace LUS

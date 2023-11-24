@@ -1905,7 +1905,8 @@ static void gfx_dp_load_block(uint8_t tile, uint32_t uls, uint32_t ult, uint32_t
             word_size_shift = 2;
             break;
     }
-    uint32_t orig_size_bytes = word_size_shift > 0 ? (lrs + 1) << word_size_shift : (lrs + 1) >> (-(int64_t)word_size_shift);
+    uint32_t orig_size_bytes =
+        word_size_shift > 0 ? (lrs + 1) << word_size_shift : (lrs + 1) >> (-(int64_t)word_size_shift);
     uint32_t size_bytes = orig_size_bytes;
     if (g_rdp.texture_to_load.raw_tex_metadata.h_byte_scale != 1 ||
         g_rdp.texture_to_load.raw_tex_metadata.v_pixel_scale != 1) {
@@ -2376,6 +2377,7 @@ void GfxExecStack::start(Gfx* dlist) {
     gfx_path.clear();
     cmd_stack.push(dlist);
     disp_stack.clear();
+    start_dlist = dlist;
 }
 
 void GfxExecStack::stop() {
@@ -2391,9 +2393,11 @@ Gfx*& GfxExecStack::currCmd() {
 void GfxExecStack::openDisp(const char* file, int line) {
     disp_stack.push_back({ file, line });
 }
+
 void GfxExecStack::closeDisp() {
     disp_stack.pop_back();
 }
+
 const std::vector<GfxExecStack::CodeDisp>& GfxExecStack::getDisp() const {
     return disp_stack;
 }
@@ -2404,36 +2408,75 @@ void GfxExecStack::branch(Gfx* caller) {
     cmd_stack.push(nullptr);
     cmd_stack.push(old);
 
-    gfx_path.push_back(caller);
+    gfx_path.push(caller);
 }
 
 void GfxExecStack::call(Gfx* caller, Gfx* callee) {
     cmd_stack.push(callee);
-    gfx_path.push_back(caller);
+    gfx_path.push(caller);
 }
 
 Gfx* GfxExecStack::ret() {
     Gfx* cmd = cmd_stack.top();
 
     cmd_stack.pop();
+
     if (!gfx_path.empty()) {
-        gfx_path.pop_back();
+        gfx_path.pop();
     }
 
     while (cmd_stack.size() > 0 && cmd_stack.top() == nullptr) {
         cmd_stack.pop();
-        gfx_path.pop_back();
+        gfx_path.pop();
     }
     return cmd;
 }
 
+bool GfxPath::operator==(const GfxPath& other) const {
+    if (path.size() != other.path.size())
+        return false;
+
+    for (size_t i = 0; i < path.size(); i++) {
+        if (path[i] != other.path[i])
+            return false;
+    }
+
+    return true;
+}
+
+void GfxPath::push(const Gfx* cmd) {
+    path.push_back(cmd);
+}
+
+void GfxPath::pop() {
+    assert(!path.empty());
+    path.pop_back();
+}
+
+void GfxPath::clear() {
+    path.clear();
+}
+
+bool GfxPath::empty() const {
+    return path.empty();
+}
+
+std::string GfxPath::string() const {
+    std::string bp = "";
+    for (auto& gfx : path) {
+        bp += fmt::format("/{}", (const void*)gfx);
+    }
+    return bp;
+}
+
 static void gfx_step(GfxExecStack& exec_stack) {
+    auto dbg = LUS::Context::GetInstance()->GetGfxDebugger();
     auto& cmd = exec_stack.currCmd();
     auto cmd0 = cmd;
     uint32_t opcode = cmd->words.w0 >> 24;
 
     // if (markerOn)
-     //printf("OP: %016X\n", cmd0->force_structure_alignment);
+    // printf("OP: %016X\n", cmd0->force_structure_alignment);
 
     switch (opcode) {
             // RSP commands:
@@ -2444,11 +2487,14 @@ static void gfx_step(GfxExecStack& exec_stack) {
         case G_MARKER: {
             cmd++;
 
-            // ourHash = ((uint64_t)cmd->words.w0 << 32) + cmd->words.w1;
-
             {
                 uint64_t hash = ((uint64_t)cmd->words.w0 << 32) + cmd->words.w1;
                 std::string dlName = ResourceGetNameByCrc(hash);
+                if (!GfxDebuggerIsDebugging() && dbg->HasBreakOnDlist(dlName)) {
+                    GfxDebuggerRequestDebugging();
+                    exec_stack.stop();
+                    return;
+                }
             }
 
             markerOn = true;
@@ -2470,7 +2516,7 @@ static void gfx_step(GfxExecStack& exec_stack) {
                 exec_stack.openDisp(filename, l);
             } else if (p == 8) {
                 if (exec_stack.disp_stack.size() == 0) {
-                    SPDLOG_WARN("CLOSE_DISPS without matching open {}:{}", p, l); 
+                    SPDLOG_WARN("CLOSE_DISPS without matching open {}:{}", p, l);
                 } else {
                     exec_stack.closeDisp();
                 }
@@ -2610,7 +2656,7 @@ static void gfx_step(GfxExecStack& exec_stack) {
                     exec_stack.branch(cmd0);
                 } else {
                     assert(0 && "???");
-                    // gfx_path.pop_back();
+                    // gfx_path.pop();
                     // cmd = cmd_stack.top();
                     // cmd_stack.pop();
                 }
@@ -3184,19 +3230,19 @@ void gfx_run(Gfx* commands, const std::unordered_map<Mtx*, MtxF>& mtx_replacemen
     rendering_state.scissor = {};
 
     auto dbg = LUS::Context::GetInstance()->GetGfxDebugger();
-        g_exec_stack.start(commands);
-        while (!g_exec_stack.cmd_stack.empty()) {
-            auto cmd = g_exec_stack.cmd_stack.top();
+    g_exec_stack.start(commands);
+    while (!g_exec_stack.cmd_stack.empty()) {
+        auto cmd = g_exec_stack.cmd_stack.top();
 
-            if (GfxDebuggerIsDebugging()) {
-                g_exec_stack.gfx_path.push_back(cmd);
-                if (dbg->HasBreakPoint(g_exec_stack.gfx_path)) {
-                    break;
-                }
-                g_exec_stack.gfx_path.pop_back();
+        if (GfxDebuggerIsDebugging()) {
+            g_exec_stack.gfx_path.push(cmd);
+            if (dbg->HasBreakPoint(g_exec_stack.gfx_path)) {
+                break;
             }
-            gfx_step(g_exec_stack);
+            g_exec_stack.gfx_path.pop();
         }
+        gfx_step(g_exec_stack);
+    }
     gfx_flush();
     gfxFramebuffer = 0;
     currentDir = std::stack<std::string>();

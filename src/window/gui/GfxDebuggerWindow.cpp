@@ -7,7 +7,6 @@
 #include <spdlog/fmt/fmt.h>
 #include "libultraship/bridge.h"
 #include <gfxd.h>
-#include <graphic/Fast3D/gfx_pc.h>
 
 extern uintptr_t gSegmentPointers[16];
 
@@ -123,15 +122,14 @@ static inline void* seg_addr(uintptr_t w1) {
 #define C0(pos, width) ((cmd->words.w0 >> (pos)) & ((1U << width) - 1))
 #define C1(pos, width) ((cmd->words.w1 >> (pos)) & ((1U << width) - 1))
 
-// static int s_dbgcnt = 0;
-void GfxDebuggerWindow::DrawDisasNode(const Gfx* cmd, std::vector<const Gfx*>& gfx_path) const {
+void GfxDebuggerWindow::DrawDisasNode(const Gfx* cmd, GfxPath& gfx_path) const {
     auto dbg = LUS::Context::GetInstance()->GetGfxDebugger();
 
     auto node_with_text = [dbg, this, &gfx_path](const Gfx* cmd, const std::string& text,
                                                  const Gfx* sub = nullptr) mutable {
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
 
-        gfx_path.push_back(cmd);
+        gfx_path.push(cmd);
         if (dbg->HasBreakPoint(gfx_path))
             flags |= ImGuiTreeNodeFlags_Selected;
         if (sub == nullptr)
@@ -147,7 +145,7 @@ void GfxDebuggerWindow::DrawDisasNode(const Gfx* cmd, std::vector<const Gfx*>& g
             }
             ImGui::TreePop();
         }
-        gfx_path.pop_back();
+        gfx_path.pop();
     };
 
     auto simple_node = [dbg, node_with_text](const Gfx* cmd, uint32_t opcode) mutable {
@@ -325,20 +323,188 @@ static bool bpEquals(const std::vector<const Gfx*>& x, const std::vector<const G
     return true;
 }
 
-// todo: __asan_on_error
+// TODO: cleanup
+static void disasCrash(FILE* f, size_t level, const Gfx* cmd, GfxPath& gfx_path) {
+    auto dbg = LUS::Context::GetInstance()->GetGfxDebugger();
+
+    auto node_with_text = [f, dbg, level, &gfx_path](const Gfx* cmd, const std::string& text,
+                                                     const Gfx* sub = nullptr) mutable {
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
+
+        bool crash_here = gfx_path == g_exec_stack.gfx_path && cmd == g_exec_stack.currCmd();
+        if (crash_here) {
+            fmt::print(f, "*****************************************************CRASH**********************************"
+                          "*************************\n");
+        }
+
+        gfx_path.push(cmd);
+
+        for (size_t i = 0; i < level; i++) {
+            fmt::print(f, "    ");
+        }
+        fmt::print(f, "{}: {}\n", (const void*)cmd, text);
+        fflush(f);
+
+        if (sub) {
+            disasCrash(f, level + 1, sub, gfx_path);
+        }
+        gfx_path.pop();
+    };
+
+    auto simple_node = [dbg, node_with_text](const Gfx* cmd, uint32_t opcode) mutable {
+        const char* opname = GetOpName(opcode);
+        size_t size = 1;
+        if (opcode == G_TEXRECT)
+            size = 3;
+        if (opname) {
+            gfxd_input_buffer(cmd, sizeof(uint64_t) * size);
+            gfxd_endian(gfxd_endian_little, sizeof(uint32_t));
+            char buff[256] = { 0 };
+            gfxd_output_buffer(buff, sizeof(buff));
+            gfxd_enable(gfxd_emit_dec_color);
+            gfxd_target(gfxd_f3dex2);
+            gfxd_execute();
+
+            node_with_text(cmd, fmt::format("{}", buff));
+        } else {
+            uint32_t opcode = cmd->words.w0 >> 24;
+            node_with_text(cmd, fmt::format("UNK: 0x{:X}", opcode));
+        }
+    };
+
+    while (true) {
+        uint32_t opcode = cmd->words.w0 >> 24;
+        const Gfx* cmd0 = cmd;
+        switch (opcode) {
+
+            case G_NOOP: {
+                const char* filename = (const char*)cmd->words.w1;
+                uint32_t p = C0(16, 8);
+                uint32_t l = C0(0, 16);
+
+                if (p == 7) {
+                    node_with_text(cmd0, fmt::format("gDPNoOpOpenDisp(): {}:{}", filename, l));
+                } else if (p == 8) {
+                    node_with_text(cmd0, fmt::format("gDPNoOpCloseDisp() {}:{}", filename, l));
+                } else {
+                    node_with_text(cmd0, fmt::format("G_NOOP: {}", p));
+                }
+
+                cmd++;
+                break;
+            }
+
+            case G_MARKER: {
+                cmd++;
+                uint64_t hash = ((uint64_t)cmd->words.w0 << 32) + cmd->words.w1;
+                const char* dlName = ResourceGetNameByCrc(hash);
+                if (!dlName)
+                    dlName = "UNKNOWN";
+
+                node_with_text(cmd0, fmt::format("G_MARKER: {}", dlName));
+                cmd++;
+                break;
+            }
+
+            case G_DL_OTR_HASH: {
+
+                if (C0(16, 1) == 0) {
+                    cmd++;
+                    uint64_t hash = ((uint64_t)cmd->words.w0 << 32) + cmd->words.w1;
+                    const char* dlName = ResourceGetNameByCrc(hash);
+                    if (!dlName)
+                        dlName = "UNKNOWN";
+
+                    Gfx* subGfx = (Gfx*)ResourceGetDataByCrc(hash);
+                    // node_with_text(cmd0, fmt::format("G_DL_OTR_HASH: {}", "UNKOWN"), subGfx);
+                    node_with_text(cmd0, fmt::format("G_DL_OTR_HASH: {}", dlName), subGfx);
+                    cmd++;
+                } else {
+                    assert(0 && "Invalid in gfx_pc????");
+                }
+                break;
+            }
+
+            case G_SETTIMG_OTR_HASH: {
+                cmd++;
+                uint64_t hash = ((uint64_t)cmd->words.w0 << 32) + cmd->words.w1;
+                const char* name = ResourceGetNameByCrc(hash);
+                if (!name)
+                    name = "UNKNOWN";
+
+                node_with_text(cmd0, fmt::format("G_SETTIMG_OTR_HASH: {}", name));
+
+                // std::shared_ptr<LUS::Texture> texture = std::static_pointer_cast<LUS::Texture>(
+                //     LUS::Context::GetInstance()->GetResourceManager()->LoadResourceProcess(ResourceGetNameByCrc(hash)));
+                cmd++;
+                break;
+            }
+
+            case G_VTX_OTR_HASH: {
+                cmd++;
+                uint64_t hash = ((uint64_t)cmd->words.w0 << 32) + cmd->words.w1;
+                const char* name = ResourceGetNameByCrc(hash);
+                if (!name)
+                    name = "UNKNOWN";
+
+                node_with_text(cmd0, fmt::format("G_VTX_OTR_HASH: {}", name));
+
+                // Vtx* vtx = (Vtx*)ResourceGetDataByCrc(hash);
+                cmd++;
+                break;
+            };
+
+            case G_DL: {
+                Gfx* subGFX = (Gfx*)seg_addr(cmd->words.w1);
+                if (C0(16, 1) == 0) {
+                    node_with_text(cmd0, fmt::format("G_DL: 0x{:x} -> {}", cmd->words.w1, (void*)subGFX), subGFX);
+                    cmd++;
+                } else {
+                    node_with_text(cmd0, fmt::format("G_DL (branch): 0x{:x} -> {}", cmd->words.w1, (void*)subGFX),
+                                   subGFX);
+                    return;
+                }
+                break;
+            }
+
+            case G_ENDDL: {
+                simple_node(cmd, opcode);
+                return;
+            }
+
+            case G_TEXRECT: {
+                simple_node(cmd, opcode);
+                cmd += 3;
+                break;
+            }
+
+            default: {
+                simple_node(cmd, opcode);
+                cmd++;
+                break;
+            }
+        }
+    }
+}
+
+extern "C" void __asan_on_error() {
+    if (g_exec_stack.cmd_stack.empty())
+        return;
+
+    GfxPath gfx_path = {};
+    FILE* x = fopen("dlist.crash", "w+");
+    disasCrash(x, 0, g_exec_stack.start_dlist, gfx_path);
+    fclose(x);
+}
 
 void GfxDebuggerWindow::DrawDisas() {
 
     auto dbg = LUS::Context::GetInstance()->GetGfxDebugger();
     auto dlist = dbg->GetDisplayList();
     ImGui::Text("dlist: %p", dlist);
-    std::string bp = "";
-    for (auto& gfx : dbg->GetBreakPoint()) {
-        bp += fmt::format("/{}", (const void*)gfx);
-    }
-    ImGui::Text("BreakPoint: %s", bp.c_str());
+    ImGui::Text("BreakPoint: %s", dbg->GetBreakPoint().string().c_str());
 
-    bool isNew = !bpEquals(mLastBreakPoint, dbg->GetBreakPoint());
+    bool isNew = mLastBreakPoint != dbg->GetBreakPoint();
     if (isNew) {
         mLastBreakPoint = dbg->GetBreakPoint();
         // fprintf(stderr, "NEW BREAKPOINT %s\n", bp.c_str());
@@ -377,6 +543,7 @@ void GfxDebuggerWindow::DrawDisas() {
 
             auto draw_img = [isNew, &gui](std::optional<std::string> prefix, const std::string& name,
                                           const RawTexMetadata& metadata) {
+                ImGui::BeginGroup();
                 if (prefix) {
                     ImGui::Text("%s: %dx%d; type=%s", prefix->c_str(), metadata.width, metadata.height,
                                 getTexType(metadata.type));
@@ -390,31 +557,20 @@ void GfxDebuggerWindow::DrawDisas() {
                 }
 
                 ImGui::Image(gui->GetTextureByName(name), ImVec2{ 100.0f, 100.0f });
+                ImGui::EndGroup();
             };
 
             ImGui::Text("Loaded Textures");
             for (size_t i = 0; i < 2; i++) {
                 auto& tex = g_rdp.loaded_texture[i];
-                // ImGui::Text("%s", fmt::format("{}: {}x{} type={}", i, tex.raw_tex_metadata.width,
-                //                               tex.raw_tex_metadata.height, getTexType(tex.raw_tex_metadata.type))
-                //                       .c_str());
+                if (i != 0) {
+                    ImGui::SameLine();
+                }
                 draw_img(std::to_string(i), fmt::format("GfxDebuggerWindowLoadedTexture{}", i), tex.raw_tex_metadata);
             }
             ImGui::Text("Texture To Load");
             {
                 auto& tex = g_rdp.texture_to_load;
-                // ImGui::Text("%s", fmt::format("{}x{} type={}", tex.raw_tex_metadata.width,
-                // tex.raw_tex_metadata.height,
-                //                               getTexType(tex.raw_tex_metadata.type))
-                //                       .c_str());
-
-                // if (isNew && g_rdp.texture_to_load.raw_tex_metadata.resource != nullptr) {
-                //     gui->UnloadTexture(TO_LOAD_TEX);
-                //     gui->LoadGuiTexture(TO_LOAD_TEX, *g_rdp.texture_to_load.raw_tex_metadata.resource,
-                //                         ImVec4{ 1.0f, 1.0f, 1.0f, 1.0f });
-                // }
-
-                // ImGui::Image(gui->GetTextureByName(TO_LOAD_TEX), ImVec2{ 100.0f, 100.0f });
                 draw_img(std::nullopt, TO_LOAD_TEX, tex.raw_tex_metadata);
             }
             ImGui::EndChild();
@@ -436,14 +592,72 @@ void GfxDebuggerWindow::DrawDisas() {
             showColor("Fill Color", g_rdp.fill_color);
             showColor("Grayscale Color", g_rdp.grayscale_color);
         }
+        ImGui::EndGroup();
 
+        ImGui::SameLine();
+
+        ImGui::BeginGroup();
+        {
+            ImGui::Text("Breakpoints");
+            ImGui::BeginChild("### Breakpoints", ImVec2(400.0f, 0.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+
+            if (ImGui::BeginPopupContextWindow("Context Menu")) {
+                ImGui::BeginGroup();
+                {
+                    ImGui::InputText("Name", mPopupInpuBuf, sizeof(mPopupInpuBuf));
+                    if (ImGui::MenuItem("Add")) {
+                        fmt::print("{}\n", mPopupInpuBuf);
+                        dbg->AddBreakOnDlist(mPopupInpuBuf);
+                        mPopupInpuBuf[0] = 0;
+                    }
+                }
+                ImGui::EndGroup();
+                ImGui::EndPopup();
+            }
+            if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+                ImGui::OpenPopup("Context Menu");
+            }
+
+            std::string toAdd = "";
+            std::string toRemove = "";
+
+            for (auto& dlist : dbg->GetBreakOnDlists()) {
+                ImGui::MenuItem(dlist.c_str());
+
+                if (ImGui::BeginPopupContextItem()) {
+                    ImGui::BeginGroup();
+                    {
+                        ImGui::InputText("Name", mPopupInpuBuf, sizeof(mPopupInpuBuf));
+                        if (ImGui::MenuItem("Add")) {
+                            fmt::print("Add {}\n", mPopupInpuBuf);
+                            toAdd = mPopupInpuBuf;
+                            mPopupInpuBuf[0] = 0;
+                        }
+                    }
+                    ImGui::EndGroup();
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Delete")) {
+                        fmt::print("Delete {}\n", dlist);
+                        toRemove = dlist;
+                    }
+                    ImGui::EndPopup();
+                }
+            }
+
+            if (!toRemove.empty())
+                dbg->RemoveBreakOnDlist(toRemove);
+            if (!toAdd.empty())
+                dbg->AddBreakOnDlist(toAdd);
+
+            ImGui::EndChild();
+        }
         ImGui::EndGroup();
     }
     ImGui::EndChild();
 
-    ImGui::BeginChild("##Disassembler", ImVec2(0.0f, 0.0f), true);
+    ImGui::BeginChild("##Disassembler", ImVec2(0.0f, 0.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
     {
-        std::vector<const Gfx*> gfx_path;
+        GfxPath gfx_path = {};
         DrawDisasNode(dlist, gfx_path);
     }
     ImGui::EndChild();
@@ -454,8 +668,6 @@ void GfxDebuggerWindow::DrawElement() {
 
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
     ImGui::Begin("GFX Debugger", &mIsVisible, ImGuiWindowFlags_NoFocusOnAppearing);
-    // const ImVec2 pos = ImGui::GetWindowPos();
-    // const ImVec2 size = ImGui::GetWindowSize();
 
     if (!dbg->IsDebugging()) {
         if (ImGui::Button("Debug")) {
