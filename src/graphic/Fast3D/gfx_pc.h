@@ -67,6 +67,18 @@ struct TextureCacheMapIter {
     TextureCacheMap::iterator it;
 };
 
+struct GfxPath {
+    std::vector<const Gfx*> path = {};
+
+    bool operator==(const GfxPath& other) const;
+
+    void push(const Gfx* cmd);
+    void pop();
+    void clear();
+    bool empty() const;
+    std::string string() const;
+};
+
 struct GfxExecStack {
     // This is a dlist stack used to handle dlist calls.
     std::stack<Gfx*> cmd_stack = {};
@@ -75,13 +87,14 @@ struct GfxExecStack {
     // The purpose of this is to identify an instruction at a poin in time
     // which would not be possible with just a Gfx* because a dlist can be called multiple times
     // what we do instead is store the call path that leads to the instruction (including branches)
-    std::vector<const Gfx*> gfx_path = {};
+    GfxPath gfx_path = {};
     struct CodeDisp {
         const char* file;
         int line;
     };
     // stack for OpenDisp/CloseDisps
-    std::vector<CodeDisp> disp_stack{};
+    std::vector<CodeDisp> disp_stack;
+    Gfx* start_dlist;
 
     void start(Gfx* dlist);
     void stop();
