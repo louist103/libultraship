@@ -75,9 +75,14 @@ if (WIN32)
     check_type_size("void*" SIZEOF_VOID_P BUILTIN_TYPES_ONLY)
     
     if (SIZEOF_VOID_P EQUAL 8)
-        message(STATUS "Using Vcpkg triplet 'x64-windows'")
+        if (NOT "${CMAKE_VS_PLATFORM_NAME}" STREQUAL "ARM64")
+            message(STATUS "Using Vcpkg triplet 'x64-windows'")
+            set(VCPKG_TRIPLET x64-windows)
+        else()
+            message(STATUS "Using Vcpkg triplet 'arm64-windows'")
+            set(VCPKG_TRIPLET arm64-windows)
+        endif()
         
-        set(VCPKG_TRIPLET x64-windows)
     endif()
 endif()
 
