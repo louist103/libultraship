@@ -266,6 +266,22 @@ void CrashHandler::PrintRegisters(CONTEXT* ctx) {
 
     sprintf_s(regBuff, std::size(regBuff), "EFLAGS: 0x%08lX", ctx->EFlags);
     AppendLine(regBuff);
+#elif defined(_M_ARM64)
+    sprintf_s(regBuff, std::size(regBuff), "Cpsr: 0x%08lX", ctx->Cpsr);
+    AppendLine(regBuff);
+
+    for (size_t i = 0; i < 29; i++) {
+        sprintf_s(regBuff, std::size(regBuff), "X%zu: 0x%016llX", i, ctx->X[i]);
+        AppendLine(regBuff);
+    }
+
+    sprintf_s(regBuff, std::size(regBuff), "Fp: 0x%016llX", ctx->Fp);
+    AppendLine(regBuff);
+
+    sprintf_s(regBuff, std::size(regBuff), "Sp: 0x%016llX", ctx->Sp);
+    AppendLine(regBuff);
+    // LUSTODO ARM NEON registers
+
 #elif defined(WINDOWS_32_BIT)
     sprintf_s(regBuff, std::size(regBuff), "EDI: 0x%08lX", ctx->Edi);
     AppendLine(regBuff);
@@ -297,7 +313,6 @@ void CrashHandler::PrintRegisters(CONTEXT* ctx) {
 }
 
 void CrashHandler::PrintStack(CONTEXT* ctx) {
-#if 0
     BOOL result;
     HANDLE process;
     HANDLE thread;
@@ -306,7 +321,7 @@ void CrashHandler::PrintStack(CONTEXT* ctx) {
     DWORD64 displacement;
     DWORD disp;
 
-#if defined(_M_AMD64)
+#if defined(_M_AMD64) || defined(_M_ARM64)
     STACKFRAME64 stack;
     memset(&stack, 0, sizeof(STACKFRAME64));
 #elif defined(WINDOWS_32_BIT)
@@ -337,7 +352,7 @@ void CrashHandler::PrintStack(CONTEXT* ctx) {
     SymInitialize(process, "debug", true);
 
     constexpr DWORD machineType =
-#if defined(_M_AMD64)
+#if defined(_M_AMD64) || defined(_M_ARM64)
         IMAGE_FILE_MACHINE_AMD64;
 #elif defined(WINDOWS_32_BIT)
         IMAGE_FILE_MACHINE_I386;
@@ -353,7 +368,7 @@ void CrashHandler::PrintStack(CONTEXT* ctx) {
         symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
         symbol->MaxNameLen = MAX_SYM_NAME;
         SymFromAddr(process, (ULONG64)stack.AddrPC.Offset, &displacement, symbol);
-#if defined(_M_AMD64)
+#if defined(_M_AMD64) || defined(_M_ARM64)
         IMAGEHLP_LINE64 line;
         line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
 #elif defined(WINDOWS_32_BIT)
@@ -388,7 +403,7 @@ void CrashHandler::PrintStack(CONTEXT* ctx) {
     PrintCommon();
     LUS::Context::GetInstance()->GetLogger()->flush();
     spdlog::shutdown();
-#endif
+
 }
 
 extern "C" LONG WINAPI seh_filter(PEXCEPTION_POINTERS ex) {
