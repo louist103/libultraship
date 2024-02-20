@@ -967,7 +967,7 @@ void gfx_d3d11_select_texture_fb(int fbID) {
 }
 
 void gfx_d3d11_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
-    if (fb_src_id >= d3d.framebuffers.size() || fb_dst_id >= d3d.framebuffers.size()) {
+    if (fb_src_id >= (int)d3d.framebuffers.size() || fb_dst_id >= (int)d3d.framebuffers.size()) {
         return;
     }
 

@@ -103,6 +103,8 @@ struct FramebufferMetal {
     struct ShaderProgramMetal* last_shader_program;
     MTL::Texture* last_bound_textures[SHADER_MAX_TEXTURES];
     MTL::SamplerState* last_bound_samplers[SHADER_MAX_TEXTURES];
+    MTL::ScissorRect scissor_rect;
+    MTL::Viewport viewport;
 
     int8_t last_depth_test = -1;
     int8_t last_depth_mask = -1;
@@ -476,30 +478,29 @@ static void gfx_metal_set_zmode_decal(bool zmode_decal) {
 }
 
 static void gfx_metal_set_viewport(int x, int y, int width, int height) {
-    MTL::Viewport viewport;
-    viewport.originX = x;
-    viewport.originY = mctx.render_target_height - y - height;
-    viewport.width = width;
-    viewport.height = height;
-    viewport.znear = 0;
-    viewport.zfar = 1;
+    FramebufferMetal& fb = mctx.framebuffers[mctx.current_framebuffer];
+    
+    fb.viewport.originX = x;
+    fb.viewport.originY = mctx.render_target_height - y - height;
+    fb.viewport.width = width;
+    fb.viewport.height = height;
+    fb.viewport.znear = 0;
+    fb.viewport.zfar = 1;
 
-    auto current_framebuffer = mctx.framebuffers[mctx.current_framebuffer];
-    current_framebuffer.command_encoder->setViewport(viewport);
+    fb.command_encoder->setViewport(fb.viewport);
 }
 
 static void gfx_metal_set_scissor(int x, int y, int width, int height) {
-    FramebufferMetal fb = mctx.framebuffers[mctx.current_framebuffer];
+    FramebufferMetal& fb = mctx.framebuffers[mctx.current_framebuffer];
     TextureDataMetal tex = mctx.textures[fb.texture_id];
 
-    MTL::ScissorRect rect;
     // clamp to viewport size as metal does not support larger values than viewport size
-    rect.x = std::max(0, std::min<int>(x, tex.width));
-    rect.y = std::max(0, std::min<int>(mctx.render_target_height - y - height, tex.height));
-    rect.width = std::max(0, std::min<int>(x + width, tex.width));
-    rect.height = std::max(0, std::min<int>(height, tex.height));
+    fb.scissor_rect.x = std::max(0, std::min<int>(x, tex.width));
+    fb.scissor_rect.y = std::max(0, std::min<int>(mctx.render_target_height - y - height, tex.height));
+    fb.scissor_rect.width = std::max(0, std::min<int>(x + width, tex.width));
+    fb.scissor_rect.height = std::max(0, std::min<int>(height, tex.height));
 
-    fb.command_encoder->setScissorRect(rect);
+    fb.command_encoder->setScissorRect(fb.scissor_rect);
 }
 
 static void gfx_metal_set_use_alpha(bool use_alpha) {
@@ -658,6 +659,8 @@ void gfx_metal_end_frame(void) {
             fb.last_bound_textures[i] = nullptr;
             fb.last_bound_samplers[i] = nullptr;
         }
+        memset(&fb.viewport, 0, sizeof(MTL::Viewport));
+        memset(&fb.scissor_rect, 0, sizeof(MTL::ScissorRect));
         fb.last_depth_test = -1;
         fb.last_depth_mask = -1;
         fb.last_zmode_decal = -1;
@@ -1016,11 +1019,11 @@ void gfx_metal_select_texture_fb(int fb_id) {
 }
 
 void gfx_metal_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
-    if (fb_src_id >= mctx.framebuffers.size() || fb_dst_id >= mctx.framebuffers.size()) {
+    if (fb_src_id >= (int)mctx.framebuffers.size() || fb_dst_id >= (int)mctx.framebuffers.size()) {
         return;
     }
 
-    auto& source_framebuffer = mctx.framebuffers[fb_src_id];
+    FramebufferMetal& source_framebuffer = mctx.framebuffers[fb_src_id];
 
     int source_texture_id = source_framebuffer.texture_id;
     MTL::Texture* source_texture = mctx.textures[source_texture_id].texture;
@@ -1061,8 +1064,10 @@ void gfx_metal_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top,
     std::string fbce_label = fmt::format("FrameBuffer {} Command Encoder After Copy", fb_src_id);
     source_framebuffer.command_encoder->setLabel(NS::String::string(fbce_label.c_str(), NS::UTF8StringEncoding));
     source_framebuffer.command_encoder->setDepthClipMode(MTL::DepthClipModeClamp);
+    source_framebuffer.command_encoder->setViewport(source_framebuffer.viewport);
+    source_framebuffer.command_encoder->setScissorRect(source_framebuffer.scissor_rect);
 
-    // Reset the framebuffer so the encoder is setup again
+    // Reset the framebuffer so the encoder is setup again when rendering triangles
     source_framebuffer.has_bounded_vertex_buffer = false;
     source_framebuffer.has_bounded_fragment_buffer = false;
     source_framebuffer.last_shader_program = nullptr;

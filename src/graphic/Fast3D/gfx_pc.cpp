@@ -3040,12 +3040,6 @@ static void gfx_step(GfxExecStack& exec_stack) {
                                  (bool)C0(23, 1), hasCopiedPtr);
 
             cmd++;
-
-            // Clear viewport and scissor so it gets set again. This is needed for Metal
-            // after a copy as the new command buffer needs to get the previous values
-            g_rdp.viewport_or_scissor_changed = true;
-            rendering_state.viewport = {};
-            rendering_state.scissor = {};
             break;
         }
         case G_SETTIMG_FB: {
