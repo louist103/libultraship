@@ -1000,9 +1000,15 @@ void gfx_opengl_resolve_msaa_color_buffer(int fb_id_target, int fb_id_source) {
     Framebuffer& fb_src = framebuffers[fb_id_source];
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_dst.fbo);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fb_src.fbo);
+
+    // Disabled for blit
+    glDisable(GL_SCISSOR_TEST);
+
     glBlitFramebuffer(0, 0, fb_src.width, fb_src.height, 0, 0, fb_dst.width, fb_dst.height, GL_COLOR_BUFFER_BIT,
                       GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, current_framebuffer);
+
+    glEnable(GL_SCISSOR_TEST);
 }
 
 void* gfx_opengl_get_framebuffer_texture_id(int fb_id) {
@@ -1020,7 +1026,7 @@ void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top
         return;
     }
 
-    const Framebuffer& src = framebuffers[fb_src_id];
+    Framebuffer& src = framebuffers[fb_src_id];
     const Framebuffer& dst = framebuffers[fb_dst_id];
 
     int srcX0, srcY0, srcX1, srcY1;
@@ -1042,23 +1048,41 @@ void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top
         srcY0 = 0;
         srcX1 = src.width;
         srcY1 = src.height;
-
-        if (fb_src_id == 0 && use_back) {
-            srcY1 -= src.height - dst.height;
-        }
     }
 
-    // Disabled for blit
-    glDisable(GL_SCISSOR_TEST);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst.fbo);
+    // Account for source framebuffer having the menu bar open
+    if (src.height >= dst.height) {
+        srcY1 -= src.height - dst.height;
+    }
 
     if (flip_y) {
         // flip the dst rect to mirror the image vertically
         std::swap(dstY0, dstY1);
     }
 
+    // Disabled for blit
+    glDisable(GL_SCISSOR_TEST);
+
+    // For msaa enabled buffers we can't perform a scaled blit to a simple sample buffer
+    // First do an unscaled blit to main buffer to resolve the sample data
+    if (src.height != dst.height && src.width != dst.width && src.msaa_level > 1) {
+        // Since frambuffer 0 is considered the final single sample resolve for the MSAA buffer,
+        // and is only needed at the end of a frame, we can temporarily use it here without causing issues
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+        glBlitFramebuffer(0, 0, src.width, src.height, 0, 0, src.width, src.height, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+
+        // Switch source buffer to the single sample
+        fb_src_id = 0;
+        src = framebuffers[0];
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst.fbo);
+
+    // The 0 buffer is a double buffer so we need to choose front or back
     if (fb_src_id == 0) {
         glReadBuffer(use_back ? GL_BACK : GL_FRONT);
     } else {
