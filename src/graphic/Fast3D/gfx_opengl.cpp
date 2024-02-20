@@ -1015,6 +1015,9 @@ void gfx_opengl_select_texture_fb(int fb_id) {
     glBindTexture(GL_TEXTURE_2D, framebuffers[fb_id].clrbuf);
 }
 
+void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
+}
+
 static std::unordered_map<std::pair<float, float>, uint16_t, hash_pair_ff>
 gfx_opengl_get_pixel_depth(int fb_id, const std::set<std::pair<float, float>>& coordinates) {
     std::unordered_map<std::pair<float, float>, uint16_t, hash_pair_ff> res;
@@ -1117,6 +1120,7 @@ struct GfxRenderingAPI gfx_opengl_api = { gfx_opengl_get_name,
                                           gfx_opengl_create_framebuffer,
                                           gfx_opengl_update_framebuffer_parameters,
                                           gfx_opengl_start_draw_to_framebuffer,
+                                          gfx_opengl_copy_framebuffer,
                                           gfx_opengl_clear_framebuffer,
                                           gfx_opengl_resolve_msaa_color_buffer,
                                           gfx_opengl_get_pixel_depth,

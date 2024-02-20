@@ -1017,6 +1017,9 @@ void gfx_metal_select_texture_fb(int fb_id) {
     gfx_metal_select_texture(tile, mctx.framebuffers[fb_id].texture_id);
 }
 
+void gfx_metal_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
+}
+
 void gfx_metal_set_texture_filter(FilteringMode mode) {
     mctx.current_filter_mode = mode;
     gfx_texture_cache_clear();
@@ -1056,6 +1059,7 @@ struct GfxRenderingAPI gfx_metal_api = { gfx_metal_get_name,
                                          gfx_metal_create_framebuffer,
                                          gfx_metal_update_framebuffer_parameters,
                                          gfx_metal_start_draw_to_framebuffer,
+                                         gfx_metal_copy_framebuffer,
                                          gfx_metal_clear_framebuffer,
                                          gfx_metal_resolve_msaa_color_buffer,
                                          gfx_metal_get_pixel_depth,

@@ -966,6 +966,9 @@ void gfx_d3d11_select_texture_fb(int fbID) {
     gfx_d3d11_select_texture(tile, d3d.framebuffers[fbID].texture_id);
 }
 
+void gfx_d3d11_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
+}
+
 void gfx_d3d11_set_texture_filter(FilteringMode mode) {
     d3d.current_filter_mode = mode;
     gfx_texture_cache_clear();
@@ -1118,6 +1121,7 @@ struct GfxRenderingAPI gfx_direct3d11_api = { gfx_d3d11_get_name,
                                               gfx_d3d11_create_framebuffer,
                                               gfx_d3d11_update_framebuffer_parameters,
                                               gfx_d3d11_start_draw_to_framebuffer,
+                                              gfx_d3d11_copy_framebuffer,
                                               gfx_d3d11_clear_framebuffer,
                                               gfx_d3d11_resolve_msaa_color_buffer,
                                               gfx_d3d11_get_pixel_depth,

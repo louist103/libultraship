@@ -128,6 +128,7 @@ uintptr_t gSegmentPointers[16];
 struct FBInfo {
     uint32_t orig_width, orig_height;
     uint32_t applied_width, applied_height;
+    bool upscale, autoresize;
 };
 
 static bool fbActive = 0;
@@ -1105,7 +1106,7 @@ static float gfx_adjust_x_for_aspect_ratio(float x) {
 }
 
 static void gfx_adjust_width_height_for_scale(uint32_t& width, uint32_t& height) {
-    width = round(width * RATIO_Y);
+    width = round(width * RATIO_X);
     height = round(height * RATIO_Y);
     if (width == 0) {
         width = 1;
@@ -1749,9 +1750,9 @@ static void gfx_adjust_viewport_or_scissor(XYWidthHeight* area) {
                        (gfx_current_game_window_viewport.y + gfx_current_game_window_viewport.height);
         }
     } else {
-        area->width *= RATIO_Y;
+        area->width *= RATIO_X;
         area->height *= RATIO_Y;
-        area->x *= RATIO_Y;
+        area->x *= RATIO_X;
         area->y = active_fb->second.orig_height - area->y;
         area->y *= RATIO_Y;
     }
@@ -2280,6 +2281,53 @@ static void gfx_dp_texture_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int3
     g_rdp.combine_mode = saved_combine_mode;
 }
 
+static void gfx_dp_image_rectangle(int32_t tile, int32_t w, int32_t h,
+                                   int32_t ulx, int32_t uly, int16_t uls, int16_t ult,
+                                   int32_t lrx, int32_t lry, int16_t lrs, int16_t lrt) {
+
+    struct LoadedVertex* ul = &g_rsp.loaded_vertices[MAX_VERTICES + 0];
+    struct LoadedVertex* ll = &g_rsp.loaded_vertices[MAX_VERTICES + 1];
+    struct LoadedVertex* lr = &g_rsp.loaded_vertices[MAX_VERTICES + 2];
+    struct LoadedVertex* ur = &g_rsp.loaded_vertices[MAX_VERTICES + 3];
+    ul->u = uls * 32;
+    ul->v = ult * 32;
+    lr->u = lrs * 32;
+    lr->v = lrt * 32;
+    ll->u = uls * 32;
+    ll->v = lrt * 32;
+    ur->u = lrs * 32;
+    ur->v = ult * 32;
+
+    // ensure we have the correct texture size, format and starting position
+    g_rdp.texture_tile[tile].siz = G_IM_SIZ_8b;
+    g_rdp.texture_tile[tile].fmt = G_IM_FMT_RGBA;
+    g_rdp.texture_tile[tile].cms = 0;
+    g_rdp.texture_tile[tile].cmt = 0;
+    g_rdp.texture_tile[tile].shifts = 0;
+    g_rdp.texture_tile[tile].shiftt = 0;
+    g_rdp.texture_tile[tile].uls = 0;
+    g_rdp.texture_tile[tile].ult = 0;
+    g_rdp.texture_tile[tile].line_size_bytes = w << (g_rdp.texture_tile[tile].siz >> 1);
+
+    auto& loadtex = g_rdp.loaded_texture[g_rdp.texture_tile[tile].tmem_index];
+    loadtex.full_image_line_size_bytes = loadtex.line_size_bytes = g_rdp.texture_tile[tile].line_size_bytes;
+    loadtex.size_bytes = loadtex.orig_size_bytes = loadtex.line_size_bytes * h;
+
+    uint8_t saved_tile = g_rdp.first_tile_index;
+    if (saved_tile != tile) {
+        g_rdp.textures_changed[0] = true;
+        g_rdp.textures_changed[1] = true;
+    }
+    g_rdp.first_tile_index = tile;
+
+    gfx_draw_rectangle(ulx, uly, lrx, lry);
+    if (saved_tile != tile) {
+        g_rdp.textures_changed[0] = true;
+        g_rdp.textures_changed[1] = true;
+    }
+    g_rdp.first_tile_index = saved_tile;
+}
+
 static void gfx_dp_fill_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_t lry) {
     if (g_rdp.color_image_address == g_rdp.z_buf_address) {
         // Don't clear Z buffer here since we already did it with glClear
@@ -2512,6 +2560,11 @@ Gfx* GfxExecStack::ret() {
     }
     return cmd;
 }
+
+void gfx_set_framebuffer(int fb, float noise_scale);
+void gfx_reset_framebuffer();
+void gfx_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, int use_back, bool copyOnce,
+                          bool* hasCopiedPtr);
 
 static void gfx_step(GfxExecStack& exec_stack) {
     auto& cmd = exec_stack.currCmd();
@@ -2958,11 +3011,16 @@ static void gfx_step(GfxExecStack& exec_stack) {
         }
         case G_SETFB: {
             gfx_flush();
-            fbActive = 1;
-            active_fb = framebuffers.find(cmd->words.w1);
-            gfx_rapi->start_draw_to_framebuffer(active_fb->first, (float)active_fb->second.applied_height /
-                                                                      active_fb->second.orig_height);
-            gfx_rapi->clear_framebuffer();
+
+            if (cmd->words.w1) {
+                gfx_set_framebuffer(cmd->words.w1, 1.0f);
+                active_fb = framebuffers.find(cmd->words.w1);
+                fbActive = true;
+            } else {
+                gfx_reset_framebuffer();
+                fbActive = false;
+                active_fb = framebuffers.end();
+            }
             break;
         }
         case G_RESETFB: {
@@ -2970,6 +3028,24 @@ static void gfx_step(GfxExecStack& exec_stack) {
             fbActive = 0;
             gfx_rapi->start_draw_to_framebuffer(game_renders_to_framebuffer ? game_framebuffer : 0,
                                                 (float)gfx_current_dimensions.height / SCREEN_HEIGHT);
+            break;
+        }
+        case G_COPYFB: {
+            cmd++;
+            bool* hasCopiedPtr = (bool*)cmd->words.w0;
+            cmd--;
+
+            gfx_flush();
+            gfx_copy_framebuffer(C0(11, 11), C0(0, 11), (int16_t)C1(16, 16), (int16_t)C1(0, 16), C0(22, 1),
+                                 (bool)C0(23, 1), hasCopiedPtr);
+
+            cmd++;
+
+            // Clear viewport and scissor so it gets set again. This is needed for Metal
+            // after a copy as the new command buffer needs to get the previous values
+            g_rdp.viewport_or_scissor_changed = true;
+            rendering_state.viewport = {};
+            rendering_state.scissor = {};
             break;
         }
         case G_SETTIMG_FB: {
@@ -3072,6 +3148,26 @@ static void gfx_step(GfxExecStack& exec_stack) {
             dsdx = C1(16, 16);
             dtdy = C1(0, 16);
             gfx_dp_texture_rectangle(ulx, uly, lrx, lry, tile, uls, ult, dsdx, dtdy, opcode == G_TEXRECTFLIP);
+            break;
+        }
+        case G_IMAGERECT: {
+            int16_t tile, iw, ih;
+            int16_t x0, y0, s0, t0;
+            int16_t x1, y1, s1, t1;
+            tile = C0(0, 3);
+            iw = C1(16, 16);
+            ih = C1(0, 16);
+            ++cmd;
+            x0 = C0(16, 16);
+            y0 = C0(0, 16);
+            s0 = C1(16, 16);
+            t0 = C1(0, 16);
+            ++cmd;
+            x1 = C0(16, 16);
+            y1 = C0(0, 16);
+            s1 = C1(16, 16);
+            t1 = C1(0, 16);
+            gfx_dp_image_rectangle(tile, iw, ih, x0, y0, s0, t0, x1, y1, s1, t1);
             break;
         }
         case G_FILLRECT:
@@ -3330,12 +3426,32 @@ void gfx_set_maximum_frame_latency(int latency) {
     gfx_wapi->set_maximum_frame_latency(latency);
 }
 
-int gfx_create_framebuffer(uint32_t width, uint32_t height) {
-    uint32_t orig_width = width, orig_height = height;
-    gfx_adjust_width_height_for_scale(width, height);
+void gfx_resize_framebuffer(int fb_id, uint32_t width, uint32_t height, int upscale, int autoresize) {
+    uint32_t orig_width, orig_height;
+
+    if (width && height) {
+        // user-specified size
+        orig_width = width;
+        orig_height = height;
+        if (upscale) {
+            gfx_adjust_width_height_for_scale(width, height);
+        }
+        gfx_rapi->update_framebuffer_parameters(fb_id, width, height, 1, true, true, true, true);
+    } else {
+        // same size as main fb
+        orig_width = width = gfx_current_dimensions.width;
+        orig_height = height = gfx_current_dimensions.height;
+        upscale = false;
+        autoresize = true;
+        gfx_rapi->update_framebuffer_parameters(fb_id, width, height, 1, true, true, true, true);
+    }
+
+    framebuffers[fb_id] = { orig_width, orig_height, width, height, (bool)upscale, (bool)autoresize };
+}
+
+extern "C" int gfx_create_framebuffer(uint32_t width, uint32_t height, int upscale, int autoresize) {
     int fb = gfx_rapi->create_framebuffer();
-    gfx_rapi->update_framebuffer_parameters(fb, width, height, 1, true, true, true, true);
-    framebuffers[fb] = { orig_width, orig_height, width, height };
+    gfx_resize_framebuffer(fb, width, height, upscale, autoresize);
     return fb;
 }
 
@@ -3344,12 +3460,44 @@ void gfx_set_framebuffer(int fb, float noise_scale) {
     gfx_rapi->clear_framebuffer();
 }
 
+void gfx_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, int use_back, bool copyOnce,
+                          bool* hasCopiedPtr) {
+    // Do not copy again if we have already copied before
+    if (copyOnce && hasCopiedPtr != nullptr && *hasCopiedPtr) {
+        return;
+    }
+
+    const bool is_main_fb = (fb_src_id == 0);
+
+    if (is_main_fb) {
+        if (left > 0 && top > 0) {
+            // upscale the position
+            left = left * gfx_current_dimensions.width / SCREEN_WIDTH;
+            top = top * gfx_current_dimensions.height / SCREEN_HEIGHT;
+            // flip Y
+            top = gfx_current_dimensions.height - top - 1;
+        }
+        if (use_back && gfx_msaa_level > 1) {
+            // read from the framebuffer we've been rendering to
+            fb_src_id = game_framebuffer;
+        }
+    }
+
+    gfx_rapi->copy_framebuffer(fb_dst_id, fb_src_id, left, top, is_main_fb, (bool)use_back);
+
+    // Set the copied pointer if we have one
+    if (hasCopiedPtr != nullptr) {
+        *hasCopiedPtr = true;
+    }
+}
+
 void gfx_reset_framebuffer() {
     gfx_rapi->start_draw_to_framebuffer(0, (float)gfx_current_dimensions.height / SCREEN_HEIGHT);
+    gfx_rapi->clear_framebuffer();
 }
 
 static void adjust_pixel_depth_coordinates(float& x, float& y) {
-    x = x * RATIO_Y - (SCREEN_WIDTH * RATIO_Y - gfx_current_dimensions.width) / 2;
+    x = x * RATIO_X - (SCREEN_WIDTH * RATIO_X - gfx_current_dimensions.width) / 2;
     y *= RATIO_Y;
     if (!game_renders_to_framebuffer ||
         (gfx_msaa_level > 1 && gfx_current_dimensions.width == gfx_current_game_window_viewport.width &&
