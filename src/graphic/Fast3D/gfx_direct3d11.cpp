@@ -967,6 +967,75 @@ void gfx_d3d11_select_texture_fb(int fbID) {
 }
 
 void gfx_d3d11_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
+    if (fb_src_id >= d3d.framebuffers.size() || fb_dst_id >= d3d.framebuffers.size()) {
+        return;
+    }
+
+    Framebuffer& fb_dst = d3d.framebuffers[fb_dst_id];
+    Framebuffer& fb_src = d3d.framebuffers[fb_src_id];
+
+    TextureData& td_dst = d3d.textures[fb_dst.texture_id];
+    TextureData& td_src = d3d.textures[fb_src.texture_id];
+
+    // Skip copying framebuffers that don't have the same width
+    if (td_src.width != td_dst.width) {
+        return;
+    }
+
+    // Textures are the same size so we can do a direct copy or resolve
+    if (td_src.height == td_dst.height) {
+        if (fb_src.msaa_level <= 1) {
+            d3d.context->CopyResource(td_dst.texture.Get(), td_src.texture.Get());
+        } else {
+            d3d.context->ResolveSubresource(td_dst.texture.Get(), 0, td_src.texture.Get(), 0,
+                                            DXGI_FORMAT_R8G8B8A8_UNORM);
+        }
+        return;
+    }
+
+    D3D11_BOX region;
+    region.left = 0;
+    region.right = td_src.width;
+    region.top = 0;
+    region.bottom = td_src.height;
+    region.front = 0;
+    region.back = 1;
+
+    // Account for source framebuffer having the menu bar open
+    if (td_src.height > td_dst.height) {
+        region.top = td_src.height - td_dst.height;
+    }
+
+    // We can't region copy a multi-sample texture to a single sample texture
+    if (fb_src.msaa_level <= 1) {
+        d3d.context->CopySubresourceRegion(td_dst.texture.Get(), 0, 0, 0, 0, td_src.texture.Get(), 0, &region);
+    } else {
+        // Setup a temporary texture
+        TextureData td_resolved;
+        td_resolved.width = td_src.width;
+        td_resolved.height = td_src.height;
+
+        D3D11_TEXTURE2D_DESC texture_desc;
+        texture_desc.Width = td_src.width;
+        texture_desc.Height = td_src.height;
+        texture_desc.Usage = D3D11_USAGE_DEFAULT;
+        texture_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        texture_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        texture_desc.CPUAccessFlags = 0;
+        texture_desc.MiscFlags = 0;
+        texture_desc.ArraySize = 1;
+        texture_desc.MipLevels = 1;
+        texture_desc.SampleDesc.Count = 1;
+        texture_desc.SampleDesc.Quality = 0;
+
+        ThrowIfFailed(d3d.device->CreateTexture2D(&texture_desc, nullptr, td_resolved.texture.GetAddressOf()));
+
+        // Resolve multi-sample to temporary
+        d3d.context->ResolveSubresource(td_resolved.texture.Get(), 0, td_src.texture.Get(), 0,
+                                        DXGI_FORMAT_R8G8B8A8_UNORM);
+        // Then copy the region to the destination
+        d3d.context->CopySubresourceRegion(td_dst.texture.Get(), 0, 0, 0, 0, td_resolved.texture.Get(), 0, &region);
+    }
 }
 
 void gfx_d3d11_set_texture_filter(FilteringMode mode) {
