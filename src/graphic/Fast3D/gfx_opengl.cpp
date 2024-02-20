@@ -1016,6 +1016,62 @@ void gfx_opengl_select_texture_fb(int fb_id) {
 }
 
 void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
+    if (fb_dst_id >= (int)framebuffers.size() || fb_src_id >= (int)framebuffers.size()) {
+        return;
+    }
+
+    const Framebuffer& src = framebuffers[fb_src_id];
+    const Framebuffer& dst = framebuffers[fb_dst_id];
+
+    int srcX0, srcY0, srcX1, srcY1;
+    int dstX0, dstY0, dstX1, dstY1;
+
+    dstX0 = dstY0 = 0;
+    dstX1 = dst.width;
+    dstY1 = dst.height;
+
+    if (left >= 0 && top >= 0) {
+        // unscaled rect copy
+        srcX0 = left;
+        srcY0 = top;
+        srcX1 = left + dst.width;
+        srcY1 = top + dst.height;
+    } else {
+        // scaled full copy
+        srcX0 = 0;
+        srcY0 = 0;
+        srcX1 = src.width;
+        srcY1 = src.height;
+
+        if (fb_src_id == 0 && use_back) {
+            srcY1 -= src.height - dst.height;
+        }
+    }
+
+    // Disabled for blit
+    glDisable(GL_SCISSOR_TEST);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst.fbo);
+
+    if (flip_y) {
+        // flip the dst rect to mirror the image vertically
+        std::swap(dstY0, dstY1);
+    }
+
+    if (fb_src_id == 0) {
+        glReadBuffer(use_back ? GL_BACK : GL_FRONT);
+    } else {
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+    }
+
+    glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[current_framebuffer].fbo);
+
+    glReadBuffer(GL_BACK);
+
+    glEnable(GL_SCISSOR_TEST);
 }
 
 static std::unordered_map<std::pair<float, float>, uint16_t, hash_pair_ff>
