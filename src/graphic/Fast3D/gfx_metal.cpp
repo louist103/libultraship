@@ -479,7 +479,7 @@ static void gfx_metal_set_zmode_decal(bool zmode_decal) {
 
 static void gfx_metal_set_viewport(int x, int y, int width, int height) {
     FramebufferMetal& fb = mctx.framebuffers[mctx.current_framebuffer];
-    
+
     fb.viewport.originX = x;
     fb.viewport.originY = mctx.render_target_height - y - height;
     fb.viewport.width = width;
@@ -1018,7 +1018,7 @@ void gfx_metal_select_texture_fb(int fb_id) {
     gfx_metal_select_texture(tile, mctx.framebuffers[fb_id].texture_id);
 }
 
-void gfx_metal_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
+void gfx_metal_copy_framebuffer(int fb_dst_id, int fb_src_id) {
     if (fb_src_id >= (int)mctx.framebuffers.size() || fb_dst_id >= (int)mctx.framebuffers.size()) {
         return;
     }
@@ -1055,11 +1055,13 @@ void gfx_metal_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top,
     }
 
     // Copy the texture over using the origins and size
-    blit_encoder->copyFromTexture(source_texture, 0, 0, source_origin, source_size, target_texture, 0, 0, target_origin);
+    blit_encoder->copyFromTexture(source_texture, 0, 0, source_origin, source_size, target_texture, 0, 0,
+                                  target_origin);
     blit_encoder->endEncoding();
 
     // Create a new render encoder back onto the framebuffer
-    source_framebuffer.command_encoder = source_framebuffer.command_buffer->renderCommandEncoder(source_framebuffer.render_pass_descriptor);
+    source_framebuffer.command_encoder =
+        source_framebuffer.command_buffer->renderCommandEncoder(source_framebuffer.render_pass_descriptor);
 
     std::string fbce_label = fmt::format("FrameBuffer {} Command Encoder After Copy", fb_src_id);
     source_framebuffer.command_encoder->setLabel(NS::String::string(fbce_label.c_str(), NS::UTF8StringEncoding));

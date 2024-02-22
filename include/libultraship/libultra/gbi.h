@@ -2655,16 +2655,12 @@ typedef union {
         _g->words.w1 = 0;                         \
     }
 
-#define gDPCopyFB(pkt, dst, src, uls, ult, back, once, copiedPtr)   \
-    {                                                               \
-        Gfx *_g0 = (Gfx *)(pkt), *_g1 = (Gfx *)(pkt);               \
-                                                                    \
-        _g0->words.w0 = _SHIFTL(G_COPYFB, 24, 8)                    \
-            | _SHIFTL(dst, 11, 11) | _SHIFTL(src, 0, 11) |          \
-            _SHIFTL(back, 22, 1) | _SHIFTL(once, 23, 1);            \
-        _g0->words.w1 = _SHIFTL(uls, 16, 16) | _SHIFTL(ult, 0, 16); \
-        _g1->words.w0 = (uintptr_t)copiedPtr;                       \
-        _g1->words.w1 = 0;                                          \
+#define gDPCopyFB(pkt, dst, src, once, copiedPtr)                                                                    \
+    {                                                                                                                \
+        Gfx* _g = (Gfx*)(pkt);                                                                                       \
+                                                                                                                     \
+        _g->words.w0 = _SHIFTL(G_COPYFB, 24, 8) | _SHIFTL(dst, 11, 11) | _SHIFTL(src, 0, 11) | _SHIFTL(once, 22, 1); \
+        _g->words.w1 = (uintptr_t)copiedPtr;                                                                         \
     }
 
 #define gDPImageRectangle(pkt, x0, y0, s0, t0, x1, y1, s1, t1, tile, iw, ih) \

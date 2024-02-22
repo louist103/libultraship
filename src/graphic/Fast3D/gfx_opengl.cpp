@@ -1021,13 +1021,18 @@ void gfx_opengl_select_texture_fb(int fb_id) {
     glBindTexture(GL_TEXTURE_2D, framebuffers[fb_id].clrbuf);
 }
 
-void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, bool flip_y, bool use_back) {
+void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id) {
     if (fb_dst_id >= (int)framebuffers.size() || fb_src_id >= (int)framebuffers.size()) {
         return;
     }
 
     Framebuffer& src = framebuffers[fb_src_id];
     const Framebuffer& dst = framebuffers[fb_dst_id];
+
+    // Skip copying framebuffers that don't have the same width
+    if (src.width != dst.width) {
+        return;
+    }
 
     int srcX0, srcY0, srcX1, srcY1;
     int dstX0, dstY0, dstX1, dstY1;
@@ -1036,27 +1041,18 @@ void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top
     dstX1 = dst.width;
     dstY1 = dst.height;
 
-    if (left >= 0 && top >= 0) {
-        // unscaled rect copy
-        srcX0 = left;
-        srcY0 = top;
-        srcX1 = left + dst.width;
-        srcY1 = top + dst.height;
-    } else {
-        // scaled full copy
-        srcX0 = 0;
-        srcY0 = 0;
-        srcX1 = src.width;
-        srcY1 = src.height;
-    }
+    srcX0 = 0;
+    srcY0 = 0;
+    srcX1 = src.width;
+    srcY1 = src.height;
 
     // Account for source framebuffer having the menu bar open
     if (src.height >= dst.height) {
         srcY1 -= src.height - dst.height;
     }
 
-    if (flip_y) {
-        // flip the dst rect to mirror the image vertically
+    // flip vertically as openGLs origin is in the bottom left when compared to Fast3D
+    if (src.invert_y != dst.invert_y) {
         std::swap(dstY0, dstY1);
     }
 
@@ -1071,8 +1067,7 @@ void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top
         glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-        glBlitFramebuffer(0, 0, src.width, src.height, 0, 0, src.width, src.height, GL_COLOR_BUFFER_BIT,
-                      GL_NEAREST);
+        glBlitFramebuffer(0, 0, src.width, src.height, 0, 0, src.width, src.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
         // Switch source buffer to the single sample
         fb_src_id = 0;
@@ -1082,9 +1077,9 @@ void gfx_opengl_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top
     glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst.fbo);
 
-    // The 0 buffer is a double buffer so we need to choose front or back
+    // The 0 buffer is a double buffer so we need to choose the back to avoid imgui elements
     if (fb_src_id == 0) {
-        glReadBuffer(use_back ? GL_BACK : GL_FRONT);
+        glReadBuffer(GL_BACK);
     } else {
         glReadBuffer(GL_COLOR_ATTACHMENT0);
     }

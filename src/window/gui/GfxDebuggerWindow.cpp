@@ -292,8 +292,9 @@ void GfxDebuggerWindow::DrawDisasNode(const Gfx* cmd, std::vector<const Gfx*>& g
             }
 
             case G_COPYFB: {
-                node_with_text(cmd0, fmt::format("G_COPYFB: src {}, dest {}, new frames only {}", C0(0, 11), C0(11, 11), C0(23, 1)));
-                cmd += 2;
+                node_with_text(cmd0, fmt::format("G_COPYFB: src {}, dest {}, new frames only {}", C0(0, 11), C0(11, 11),
+                                                 C0(22, 1)));
+                cmd++;
                 break;
             }
 

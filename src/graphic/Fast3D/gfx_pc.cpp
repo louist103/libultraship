@@ -128,7 +128,6 @@ uintptr_t gSegmentPointers[16];
 struct FBInfo {
     uint32_t orig_width, orig_height;
     uint32_t applied_width, applied_height;
-    bool upscale, autoresize;
 };
 
 static bool fbActive = 0;
@@ -2281,9 +2280,8 @@ static void gfx_dp_texture_rectangle(int32_t ulx, int32_t uly, int32_t lrx, int3
     g_rdp.combine_mode = saved_combine_mode;
 }
 
-static void gfx_dp_image_rectangle(int32_t tile, int32_t w, int32_t h,
-                                   int32_t ulx, int32_t uly, int16_t uls, int16_t ult,
-                                   int32_t lrx, int32_t lry, int16_t lrs, int16_t lrt) {
+static void gfx_dp_image_rectangle(int32_t tile, int32_t w, int32_t h, int32_t ulx, int32_t uly, int16_t uls,
+                                   int16_t ult, int32_t lrx, int32_t lry, int16_t lrs, int16_t lrt) {
 
     struct LoadedVertex* ul = &g_rsp.loaded_vertices[MAX_VERTICES + 0];
     struct LoadedVertex* ll = &g_rsp.loaded_vertices[MAX_VERTICES + 1];
@@ -2563,8 +2561,7 @@ Gfx* GfxExecStack::ret() {
 
 void gfx_set_framebuffer(int fb, float noise_scale);
 void gfx_reset_framebuffer();
-void gfx_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, int use_back, bool copyOnce,
-                          bool* hasCopiedPtr);
+void gfx_copy_framebuffer(int fb_dst_id, int fb_src_id, bool copyOnce, bool* hasCopiedPtr);
 
 static void gfx_step(GfxExecStack& exec_stack) {
     auto& cmd = exec_stack.currCmd();
@@ -3031,15 +3028,11 @@ static void gfx_step(GfxExecStack& exec_stack) {
             break;
         }
         case G_COPYFB: {
-            cmd++;
-            bool* hasCopiedPtr = (bool*)cmd->words.w0;
-            cmd--;
+            bool* hasCopiedPtr = (bool*)cmd->words.w1;
 
             gfx_flush();
-            gfx_copy_framebuffer(C0(11, 11), C0(0, 11), (int16_t)C1(16, 16), (int16_t)C1(0, 16), C0(22, 1),
-                                 (bool)C0(23, 1), hasCopiedPtr);
+            gfx_copy_framebuffer(C0(11, 11), C0(0, 11), (bool)C0(22, 1), hasCopiedPtr);
 
-            cmd++;
             break;
         }
         case G_SETTIMG_FB: {
@@ -3420,32 +3413,12 @@ void gfx_set_maximum_frame_latency(int latency) {
     gfx_wapi->set_maximum_frame_latency(latency);
 }
 
-void gfx_resize_framebuffer(int fb_id, uint32_t width, uint32_t height, int upscale, int autoresize) {
-    uint32_t orig_width, orig_height;
-
-    if (width && height) {
-        // user-specified size
-        orig_width = width;
-        orig_height = height;
-        if (upscale) {
-            gfx_adjust_width_height_for_scale(width, height);
-        }
-        gfx_rapi->update_framebuffer_parameters(fb_id, width, height, 1, true, true, true, true);
-    } else {
-        // same size as main fb
-        orig_width = width = gfx_current_dimensions.width;
-        orig_height = height = gfx_current_dimensions.height;
-        upscale = false;
-        autoresize = true;
-        gfx_rapi->update_framebuffer_parameters(fb_id, width, height, 1, true, true, true, true);
-    }
-
-    framebuffers[fb_id] = { orig_width, orig_height, width, height, (bool)upscale, (bool)autoresize };
-}
-
-extern "C" int gfx_create_framebuffer(uint32_t width, uint32_t height, int upscale, int autoresize) {
+extern "C" int gfx_create_framebuffer(uint32_t width, uint32_t height) {
+    uint32_t orig_width = width, orig_height = height;
+    gfx_adjust_width_height_for_scale(width, height);
     int fb = gfx_rapi->create_framebuffer();
-    gfx_resize_framebuffer(fb, width, height, upscale, autoresize);
+    gfx_rapi->update_framebuffer_parameters(fb, width, height, 1, true, true, true, true);
+    framebuffers[fb] = { orig_width, orig_height, width, height };
     return fb;
 }
 
@@ -3454,30 +3427,18 @@ void gfx_set_framebuffer(int fb, float noise_scale) {
     gfx_rapi->clear_framebuffer();
 }
 
-void gfx_copy_framebuffer(int fb_dst_id, int fb_src_id, int left, int top, int use_back, bool copyOnce,
-                          bool* hasCopiedPtr) {
+void gfx_copy_framebuffer(int fb_dst_id, int fb_src_id, bool copyOnce, bool* hasCopiedPtr) {
     // Do not copy again if we have already copied before
     if (copyOnce && hasCopiedPtr != nullptr && *hasCopiedPtr) {
         return;
     }
 
-    const bool is_main_fb = (fb_src_id == 0);
-
-    if (is_main_fb) {
-        if (left > 0 && top > 0) {
-            // upscale the position
-            left = left * gfx_current_dimensions.width / SCREEN_WIDTH;
-            top = top * gfx_current_dimensions.height / SCREEN_HEIGHT;
-            // flip Y
-            top = gfx_current_dimensions.height - top - 1;
-        }
-        if (use_back && gfx_msaa_level > 1) {
-            // read from the framebuffer we've been rendering to
-            fb_src_id = game_framebuffer;
-        }
+    if (fb_src_id == 0 && gfx_msaa_level > 1) {
+        // read from the framebuffer we've been rendering to
+        fb_src_id = game_framebuffer;
     }
 
-    gfx_rapi->copy_framebuffer(fb_dst_id, fb_src_id, left, top, is_main_fb, (bool)use_back);
+    gfx_rapi->copy_framebuffer(fb_dst_id, fb_src_id);
 
     // Set the copied pointer if we have one
     if (hasCopiedPtr != nullptr) {
