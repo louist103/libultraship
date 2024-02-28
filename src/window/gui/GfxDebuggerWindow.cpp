@@ -6,8 +6,10 @@
 #include <stack>
 #include <spdlog/fmt/fmt.h>
 #include "libultraship/bridge.h"
-#include <gfxd.h>
 #include <graphic/Fast3D/gfx_pc.h>
+#ifdef GFX_DEBUG_DISASSEMBLER
+#include <gfxd.h>
+#endif
 
 extern uintptr_t gSegmentPointers[16];
 
@@ -158,6 +160,7 @@ void GfxDebuggerWindow::DrawDisasNode(const Gfx* cmd, std::vector<const Gfx*>& g
         if (opcode == G_TEXRECT)
             size = 3;
         if (opname) {
+#ifdef GFX_DEBUG_DISASSEMBLER
             // Our Gfx uses uinptr_t for words, but libgfxd uses uint32_t,
             // Copy only the first 32bits of each word into a vector before passing the instructions
             std::vector<uint32_t> input;
@@ -175,6 +178,9 @@ void GfxDebuggerWindow::DrawDisasNode(const Gfx* cmd, std::vector<const Gfx*>& g
             gfxd_execute();
 
             node_with_text(cmd, fmt::format("{}", buff));
+#else
+            node_with_text(cmd, fmt::format("{}", opname));
+#endif
         } else {
             uint32_t opcode = cmd->words.w0 >> 24;
             node_with_text(cmd, fmt::format("UNK: 0x{:X}", opcode));
