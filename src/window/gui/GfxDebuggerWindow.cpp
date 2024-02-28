@@ -158,8 +158,16 @@ void GfxDebuggerWindow::DrawDisasNode(const Gfx* cmd, std::vector<const Gfx*>& g
         if (opcode == G_TEXRECT)
             size = 3;
         if (opname) {
-            gfxd_input_buffer(cmd, sizeof(uint64_t) * size);
-            gfxd_endian(gfxd_endian_little, sizeof(uint32_t));
+            // Our Gfx uses uinptr_t for words, but libgfxd uses uint32_t,
+            // Copy only the first 32bits of each word into a vector before passing the instructions
+            std::vector<uint32_t> input;
+            for (size_t i = 0; i < size; i++) {
+                input.push_back(cmd[i].words.w0 & 0xFFFFFFFF);
+                input.push_back(cmd[i].words.w1 & 0xFFFFFFFF);
+            }
+
+            gfxd_input_buffer(input.data(), sizeof(uint32_t) * size * 2);
+            gfxd_endian(gfxd_endian_host, sizeof(uint32_t));
             char buff[256] = { 0 };
             gfxd_output_buffer(buff, sizeof(buff));
             gfxd_enable(gfxd_emit_dec_color);
