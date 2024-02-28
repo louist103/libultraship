@@ -33,9 +33,9 @@ enum class ResourceType {
     SOH_Background = 0x4F424749,      // OBGI
     SOH_SceneCommand = 0x4F52434D,    // ORCM
 
-    //LUS of Two
-    TSH_TexAnim = 0x4F54414E,        // OTAN
-    TSH_CKeyFrameAnim = 0x4F4B4641,  // OKFA
-    TSH_CKeyFrameSkel = 0x4F4B4653   // OKFS
+    // LUS of Two
+    TSH_TexAnim = 0x4F54414E,       // OTAN
+    TSH_CKeyFrameAnim = 0x4F4B4641, // OKFA
+    TSH_CKeyFrameSkel = 0x4F4B4653  // OKFS
 };
 } // namespace LUS
