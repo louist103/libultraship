@@ -60,7 +60,7 @@ bool ResourceManager::DidLoadSuccessfully() {
 
 std::shared_ptr<File> ResourceManager::LoadFileProcess(const std::string& filePath) {
     auto file = mArchive->LoadFile(filePath, true);
-    
+
     if (file != nullptr) {
         SPDLOG_TRACE("Loaded File {} on ResourceManager", file->Path);
     } else {
