@@ -107,7 +107,7 @@ list(APPEND ADDITIONAL_LIB_INCLUDES ${threadpool_SOURCE_DIR}/include)
 option(PRISM_STANDALONE "Build prism as a standalone library" OFF)
 FetchContent_Declare(
     prism
-    GIT_REPOSITORY https://github.com/louist103/prism-processo
+    GIT_REPOSITORY https://github.com/louist103/prism-processor
     GIT_TAG 9bce1f23b7e3c984778bc74a9e8dfeebc8efed09
 )
 FetchContent_MakeAvailable(prism)
