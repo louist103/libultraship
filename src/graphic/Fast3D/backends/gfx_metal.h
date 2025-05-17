@@ -138,7 +138,7 @@ class GfxRenderingAPIMetal final : public GfxRenderingAPI {
     void SetScissor(int x, int y, int width, int height) override;
     void SetUseAlpha(bool useAlpha) override;
     void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) override;
-    void Init() override;
+    void Init(Ship::GuiWindowInitData& data) override;
     void OnResize() override;
     void StartFrame() override;
     void EndFrame() override;

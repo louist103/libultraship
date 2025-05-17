@@ -1,6 +1,7 @@
 include(FetchContent)
 
 find_package(OpenGL QUIET)
+find_package(Vulkan QUIET)
 
 #=================== ImGui ===================
 set(imgui_fixes_and_config_patch_file ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/imgui-fixes-and-config.patch)
@@ -32,6 +33,14 @@ target_sources(ImGui
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
 )
+
+if(Vulkan_FOUND)
+    message("Vulkan found")
+    target_sources(ImGui
+            PRIVATE
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+    )
+endif()
 
 target_include_directories(ImGui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends PRIVATE ${SDL2_INCLUDE_DIRS})
 
@@ -102,7 +111,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ThreadPool)
 
 list(APPEND ADDITIONAL_LIB_INCLUDES ${threadpool_SOURCE_DIR}/include)
-
 #=========== prism ===========
 option(PRISM_STANDALONE "Build prism as a standalone library" OFF)
 FetchContent_Declare(
@@ -111,3 +119,78 @@ FetchContent_Declare(
     GIT_TAG 493974843e910d0fac4e3bb1ec52656728b875b4
 )
 FetchContent_MakeAvailable(prism)
+
+# Add the LLGL library
+set(LLGL_BUILD_EXAMPLES OFF)
+set(LLGL_BUILD_RENDERER_NULL OFF)
+set(LLGL_BUILD_RENDERER_OPENGL ON)
+set(LLGL_GL_ENABLE_DSA_EXT ON)
+set(LLGL_GL_ENABLE_VENDOR_EXT ON)
+set(LLGL_GL_INCLUDE_EXTERNAL ON)
+if (Vulkan_FOUND)
+    set(LLGL_BUILD_RENDERER_VULKAN ON)
+else()
+    set(LLGL_BUILD_RENDERER_VULKAN OFF)
+endif()
+set(LLGL_BUILD_STATIC_LIB ON)
+
+set(LLGL_OUTPUT_DIR ${CMAKE_BINARY_DIR})
+
+set(llgl_patch_file ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/llgl.patch)
+
+# Applies the patch or checks if it has already been applied successfully previously. Will error otherwise.
+set(llgl_apply_patch_if_needed git apply ${llgl_patch_file} ${git_hide_output} || git apply --reverse --check ${llgl_patch_file})
+
+FetchContent_Declare(
+        llgl
+        GIT_REPOSITORY https://github.com/LukasBanana/LLGL.git
+        GIT_TAG 310e6b9f6c173ac2dac11b765e0fd0a7f66f1286
+        PATCH_COMMAND ${llgl_apply_patch_if_needed}
+)
+FetchContent_MakeAvailable(llgl)
+
+if(LLGL_BUILD_RENDERER_VULKAN)
+    link_libraries(LLGL_Vulkan)
+endif()
+
+if(LLGL_BUILD_RENDERER_OPENGL)
+    link_libraries(LLGL_OpenGL)
+endif()
+
+if(LLGL_BUILD_RENDERER_DIRECT3D11)
+    link_libraries(LLGL_Direct3D11)
+endif()
+
+if(LLGL_BUILD_RENDERER_DIRECT3D12)
+    link_libraries(LLGL_Direct3D12)
+endif()
+
+if(LLGL_BUILD_RENDERER_METAL)
+    link_libraries(LLGL_Metal)
+endif()
+
+link_libraries(LLGL)
+
+include_directories(${llgl_SOURCE_DIR})
+
+
+include(cmake/FindVulkan.cmake)
+set(SPIRV-Cross_DIR cmake/FIndPkgs)
+find_package(Vulkan REQUIRED SPIRV-Tools)
+find_package(Vulkan REQUIRED glslang)
+
+link_libraries(Vulkan::SPIRV-Tools)
+link_libraries(Vulkan::glslang)
+
+find_package(SPIRV-Cross REQUIRED)
+link_libraries(
+        SPIRV-Cross::spirv-cross-core
+        SPIRV-Cross::spirv-cross-glsl # or others as needed
+        SPIRV-Cross::spirv-cross-msl # or others as needed
+        SPIRV-Cross::spirv-cross-hlsl
+)
+
+if(WIN32)
+    set(EXTERNAL_INCLUDE_DIR "${llgl_SOURCE_DIR}/external")
+    include_directories("${EXTERNAL_INCLUDE_DIR}/OpenGL/include")
+endif()

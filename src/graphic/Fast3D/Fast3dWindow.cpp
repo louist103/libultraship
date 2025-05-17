@@ -12,6 +12,7 @@
 #include "graphic/Fast3D/backends/gfx_direct3d_common.h"
 #include "graphic/Fast3D/backends/gfx_direct3d11.h"
 #include "backends/gfx_window_manager_api.h"
+#include "graphic/Fast3D/backends/gfx_llgl.h"
 
 #include <fstream>
 
@@ -33,6 +34,7 @@ Fast3dWindow::Fast3dWindow(std::shared_ptr<Ship::Gui> gui) : Ship::Window(gui) {
         AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_METAL);
     }
 #endif
+    AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_LLGL);
     AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_OPENGL);
 }
 
@@ -137,6 +139,10 @@ void Fast3dWindow::InitWindowManager() {
             mWindowManagerApi = new GfxWindowBackendSDL2();
             break;
 #endif
+        case Ship::WindowBackend::FAST3D_SDL_LLGL:
+            mRenderingApi = new GfxRenderingAPILLGL();
+            mWindowManagerApi = new GfxWindowBackendSDL2();
+            break;
         default:
             SPDLOG_ERROR("Could not load the correct rendering backend");
             break;
@@ -180,10 +186,13 @@ bool Fast3dWindow::DrawAndRunGraphicsCommands(Gfx* commands, const std::unordere
     }
 
     auto gui = wnd->GetGui();
-    // Setup of the backend frames and draw initial Window and GUI menus
-    gui->StartDraw();
+
     // Setup game framebuffers to match available window space
     mInterpreter->StartFrame();
+
+    // Setup of the backend frames and draw initial Window and GUI menus
+    gui->StartDraw();
+
     // Execute the games gfx commands
     mInterpreter->Run(commands, mtxReplacements);
     // Renders the game frame buffer to the final window and finishes the GUI

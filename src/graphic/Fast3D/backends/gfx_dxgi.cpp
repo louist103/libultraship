@@ -520,7 +520,7 @@ static uint64_t qpc_init, qpc_freq;
 GfxWindowBackendDXGI::~GfxWindowBackendDXGI() {
 }
 
-void GfxWindowBackendDXGI::Init(const char* game_name, const char* gfx_api_name, bool start_in_fullscreen,
+Ship::GuiWindowInitData GfxWindowBackendDXGI::Init(const char* game_name, const char* gfx_api_name, bool start_in_fullscreen,
                                 uint32_t width, uint32_t height, int32_t posX, int32_t posY) {
     LARGE_INTEGER lqpc_init, lqpc_freq;
     QueryPerformanceCounter(&lqpc_init);
@@ -603,6 +603,7 @@ void GfxWindowBackendDXGI::Init(const char* game_name, const char* gfx_api_name,
     mRawInputDevice[0].dwFlags = RIDEV_INPUTSINK;
     mRawInputDevice[0].hwndTarget = h_wnd;
     RegisterRawInputDevices(mRawInputDevice, 1, sizeof(mRawInputDevice[0]));
+    return {};
 }
 
 void GfxWindowBackendDXGI::SetFullscreenChangedCallback(void (*mOnFullscreenChanged)(bool is_now_fullscreen)) {

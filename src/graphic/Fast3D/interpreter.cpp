@@ -34,7 +34,7 @@
 #include "utils/Utils.h"
 #include "Context.h"
 #include "libultraship/bridge.h"
-
+#include "window/gui/Gui.h"
 #include <spdlog/fmt/fmt.h>
 
 std::stack<std::string> currentDir;
@@ -4173,8 +4173,8 @@ void Interpreter::Init(class GfxWindowBackend* wapi, class GfxRenderingAPI* rapi
                        bool start_in_fullscreen, uint32_t width, uint32_t height, uint32_t posX, uint32_t posY) {
     mWapi = wapi;
     mRapi = rapi;
-    mWapi->Init(game_name, rapi->GetName(), start_in_fullscreen, width, height, posX, posY);
-    mRapi->Init();
+    auto windowImpl = mWapi->Init(game_name, rapi->GetName(), start_in_fullscreen, width, height, posX, posY);
+    mRapi->Init(windowImpl);
     mRapi->UpdateFramebufferParameters(0, width, height, 1, false, true, true, true);
     mCurDimensions.internal_mul = CVarGetFloat(CVAR_INTERNAL_RESOLUTION, 1);
     mMsaaLevel = CVarGetInteger(CVAR_MSAA_VALUE, 1);
@@ -4287,6 +4287,7 @@ void Interpreter::StartFrame() {
     }
 
     mFbActive = false;
+    mRapi->StartFrame();
 }
 
 GfxExecStack g_exec_stack = {};

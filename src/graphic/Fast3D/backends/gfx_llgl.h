@@ -1,58 +1,17 @@
-#ifdef ENABLE_OPENGL
-#ifndef GFX_OPENGL_H
-#define GFX_OPENGL_H
+#ifndef GFX_LLGL_H
+#define GFX_LLGL_H
 
 #include "gfx_rendering_api.h"
-#include "../interpreter.h"
+#include <LLGL/LLGL.h>
 
-#ifdef _MSC_VER
-#include <SDL2/SDL.h>
-// #define GL_GLEXT_PROTOTYPES 1
-#include <GL/glew.h>
-#elif FOR_WINDOWS
-#include <GL/glew.h>
-#include "SDL.h"
-#define GL_GLEXT_PROTOTYPES 1
-#include "SDL_opengl.h"
-#elif __APPLE__
-#include <SDL2/SDL.h>
-#include <GL/glew.h>
-#elif USE_OPENGLES
-#include <SDL2/SDL.h>
-#include <GLES3/gl3.h>
-#else
-#include <SDL2/SDL.h>
-#define GL_GLEXT_PROTOTYPES 1
-#include <SDL2/SDL_opengl.h>
-#endif
+extern LLGL::RenderSystemPtr llgl_renderer;
+extern LLGL::SwapChain* llgl_swapChain;
+extern LLGL::CommandBuffer* llgl_cmdBuffer;
+
 namespace Fast {
-struct ShaderProgram {
-    GLuint openglProgramId;
-    uint8_t numInputs;
-    bool usedTextures[SHADER_MAX_TEXTURES];
-    uint8_t numFloats;
-    GLint attribLocations[16];
-    uint8_t attribSizes[16];
-    uint8_t numAttribs;
-    GLint frameCountLocation;
-    GLint noiseScaleLocation;
-    GLint texture_width_location;
-    GLint texture_height_location;
-    GLint texture_filtering_location;
-};
-
-struct FramebufferOGL {
-    uint32_t width, height;
-    bool has_depth_buffer;
-    uint32_t msaa_level;
-    bool invertY;
-
-    GLuint fbo, clrbuf, clrbufMsaa, rbo;
-};
-
-class GfxRenderingAPIOGL final : public GfxRenderingAPI {
-  public:
-    ~GfxRenderingAPIOGL() override = default;
+class GfxRenderingAPILLGL : public GfxRenderingAPI {
+public:
+      ~GfxRenderingAPILLGL() override = default;
     const char* GetName() override;
     int GetMaxTextureSize() override;
     GfxClipParameters GetClipParameters() override;
@@ -95,42 +54,7 @@ class GfxRenderingAPIOGL final : public GfxRenderingAPI {
     FilteringMode GetTextureFilter() override;
     void SetSrgbMode() override;
     ImTextureID GetTextureById(int id) override;
-
-  private:
-    void SetUniforms(ShaderProgram* prg) const;
-    std::string BuildFsShader(const CCFeatures& cc_features);
-    void SetPerDrawUniforms();
-
-    struct TextureInfo {
-        uint16_t width;
-        uint16_t height;
-        uint16_t filtering;
-    } textures[1024];
-
-    GLuint mCurrentTextureIds[2];
-    uint8_t mCurrentTile;
-
-    std::map<std::pair<uint64_t, uint32_t>, ShaderProgram> mShaderProgramPool;
-    ShaderProgram* mCurrentShaderProgram;
-
-    GLuint mOpenglVbo = 0;
-#if defined(__APPLE__) || defined(USE_OPENGLES)
-    GLuint mOpenglVao;
-#endif
-
-    uint32_t mFrameCount = 0;
-
-    std::vector<FramebufferOGL> mFrameBuffers;
-    size_t mCurrentFrameBuffer = 0;
-    float mCurrentNoiseScale = 0.0f;
-    FilteringMode mCurrentFilterMode = FILTER_THREE_POINT;
-
-    GLint mMaxMsaaLevel = 1;
-    GLuint mPixelDepthRb = 0;
-    GLuint mPixelDepthFb = 0;
-    size_t mPixelDepthRbSize = 0;
 };
+}
 
-} // namespace Fast
-#endif
 #endif

@@ -26,7 +26,9 @@
 #else
 #include <SDL2/SDL.h>
 #define GL_GLEXT_PROTOTYPES 1
+#ifndef WIN32
 #include <SDL2/SDL_opengles2.h>
+#endif
 #endif
 
 #include "window/gui/Gui.h"
@@ -35,8 +37,17 @@
 #ifdef _WIN32
 #include <WTypesbase.h>
 #include <Windows.h>
-#include <SDL_syswm.h>
 #endif
+
+#include <SDL_syswm.h>
+#include <LLGL/LLGL.h>
+#include "gfx_llgl.h"
+#include "gfx_sdl.h"
+
+#ifdef __APPLE__
+typedef void NSResponder;
+#endif
+#include <LLGL/Platform/NativeHandle.h>
 
 #define GFX_BACKEND_NAME "SDL"
 #define _100NANOSECONDS_IN_SECOND 10000000
@@ -309,7 +320,7 @@ static LRESULT CALLBACK gfx_sdl_wnd_proc(HWND h_wnd, UINT message, WPARAM w_para
 };
 #endif
 
-void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bool startFullScreen, uint32_t width,
+Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bool startFullScreen, uint32_t width,
                                 uint32_t height, int32_t posX, int32_t posY) {
     mWindowWidth = width;
     mWindowHeight = height;
@@ -322,6 +333,21 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+
+    char title[512];
+    int len = snprintf(title, 512, "%s (%s)", "MM","LLGL");
+
+    Ship::GuiWindowInitData window_impl{};
+    bool use_llgl = true;
+    if (use_llgl) {
+        window_impl.LLGL = { std::make_shared<SDLSurface>(
+                                 LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
+                                 LLGL::RendererID::Vulkan, window_impl.LLGL.desc),
+                             window_impl.LLGL.desc };
+        mWnd = window_impl.LLGL.Window->wnd;
+        return window_impl;
+    }
+
 
 #if defined(__APPLE__)
     bool use_opengl = strcmp(gfxApiName, "OpenGL") == 0;
@@ -353,8 +379,7 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     }
 #endif
 
-    char title[512];
-    int len = sprintf(title, "%s (%s)", gameName, gfxApiName);
+    len = sprintf(title, "%s (%s)", gameName, gfxApiName);
 
 #ifdef __IOS__
     Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;
@@ -379,8 +404,6 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     SDL_WndProc = SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)gfx_sdl_wnd_proc);
     SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 #endif
-    Ship::GuiWindowInitData window_impl;
-
     int display_in_use = SDL_GetWindowDisplayIndex(mWnd);
     if (display_in_use < 0) { // Fallback to default if out of bounds
         posX = 100;
@@ -408,7 +431,7 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
         mRenderer = SDL_CreateRenderer(mWnd, -1, flags);
         if (mRenderer == nullptr) {
             SPDLOG_ERROR("Error creating renderer: {}", SDL_GetError());
-            return;
+            return window_impl;
         }
 
         if (startFullScreen) {
@@ -576,11 +599,13 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
         case SDL_WINDOWEVENT:
             switch (event.window.event) {
                 case SDL_WINDOWEVENT_SIZE_CHANGED:
+                    case SDL_WINDOWEVENT_RESIZED:
 #ifdef __APPLE__
                     SDL_GetWindowSize(mWnd, &mWindowWidth, &mWindowHeight);
 #else
                     SDL_GL_GetDrawableSize(mWnd, &mWindowWidth, &mWindowHeight);
 #endif
+                llgl_swapChain->ResizeBuffers({ (uint32_t)mWindowWidth, (uint32_t)mWindowWidth });
                     break;
                 case SDL_WINDOWEVENT_CLOSE:
                     if (event.window.windowID == SDL_GetWindowID(mWnd)) {
@@ -684,7 +709,8 @@ void GfxWindowBackendSDL2::SwapBuffersBegin() {
     }
 
     SyncFramerateWithTime();
-    SDL_GL_SwapWindow(mWnd);
+    //! TODO: Implement this
+    // SDL_GL_SwapWindow(wnd);
 }
 
 void GfxWindowBackendSDL2::SwapBuffersEnd() {

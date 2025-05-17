@@ -3,11 +3,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "window/gui/Gui.h"
 namespace Fast {
 class GfxWindowBackend {
   public:
     virtual ~GfxWindowBackend() = default;
-    virtual void Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
+    virtual Ship::GuiWindowInitData Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
                       int32_t posX, int32_t posY) = 0;
     virtual void Close() = 0;
     virtual void SetKeyboardCallbacks(bool (*mOnKeyDown)(int scancode), bool (*mOnKeyUp)(int scancode),

@@ -7,6 +7,8 @@
 #include <set>
 #include "imconfig.h"
 
+#include "window/gui/Gui.h"
+
 namespace Fast {
 struct ShaderProgram;
 
@@ -49,7 +51,7 @@ class GfxRenderingAPI {
     virtual void SetScissor(int x, int y, int width, int height) = 0;
     virtual void SetUseAlpha(bool useAlpha) = 0;
     virtual void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) = 0;
-    virtual void Init() = 0;
+    virtual void Init(Ship::GuiWindowInitData& init_data) = 0;
     virtual void OnResize() = 0;
     virtual void StartFrame() = 0;
     virtual void EndFrame() = 0;

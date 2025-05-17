@@ -2,6 +2,13 @@
 
 #include "Gui.h"
 
+
+#include "ImGui_LLGL.h"
+#include "graphic/Fast3D/backends/gfx_llgl.h"
+
+#include <SDL2/SDL_video.h>
+#include <SDL2/SDL_syswm.h>
+
 #include <cstring>
 #include <utility>
 #include <string>
@@ -173,6 +180,9 @@ void Gui::ImGuiWMInit() {
             ImGui_ImplWin32_Init(mImpl.Dx11.Window);
             break;
 #endif
+        case WindowBackend::FAST3D_SDL_LLGL:
+            InitImGui(*mImpl.LLGL.Window, llgl_renderer, llgl_swapChain, llgl_cmdBuffer);
+        break;
         default:
             break;
     }
@@ -326,6 +336,9 @@ void Gui::ImGuiBackendNewFrame() {
             break;
         }
 #endif
+        case WindowBackend::FAST3D_SDL_LLGL:
+            NewFrameImGui(llgl_renderer, llgl_cmdBuffer);
+        break;
         default:
             break;
     }
@@ -554,12 +567,17 @@ void Gui::HandleMouseCapture() {
     }
 }
 
-void Gui::StartFrame() {
-    HandleMouseCapture();
+void Gui::ImGuiNewFrame() {
     ImGuiBackendNewFrame();
     ImGuiWMNewFrame();
     ImGui::NewFrame();
 }
+
+void Gui::StartFrame() {
+    HandleMouseCapture();
+}
+
+
 
 void Gui::EndFrame() {
     // Draw the ImGui "viewports" which are the floating windows.
@@ -721,13 +739,15 @@ void Gui::CheckSaveCvars() {
 void Gui::StartDraw() {
     // Initialize the frame.
     StartFrame();
-    // Draw the gui menus
-    DrawMenu();
-    // Calculate the available space the game can render to
-    CalculateGameViewport();
+
 }
 
 void Gui::EndDraw() {
+    // Draw the gui menus
+    ImGui::NewFrame();
+    // Calculate the available space the game can render to
+    CalculateGameViewport();
+    DrawMenu();
     // Draw the game framebuffer into ImGui
     DrawGame();
     // End the frame
@@ -784,6 +804,9 @@ void Gui::ImGuiRenderDrawData(ImDrawData* data) {
             ImGui_ImplDX11_RenderDrawData(data);
             break;
 #endif
+        case WindowBackend::FAST3D_SDL_LLGL:
+            RenderImGui(data, llgl_renderer, llgl_cmdBuffer);
+            break;
         default:
             break;
     }

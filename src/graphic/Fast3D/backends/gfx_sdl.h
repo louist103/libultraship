@@ -1,6 +1,7 @@
 #ifndef GFX_SDL_H
 #define GFX_SDL_H
 
+#include "window/gui/Gui.h"
 #include "gfx_window_manager_api.h"
 namespace Fast {
 class GfxWindowBackendSDL2 final : public GfxWindowBackend {
@@ -8,7 +9,7 @@ class GfxWindowBackendSDL2 final : public GfxWindowBackend {
     GfxWindowBackendSDL2() = default;
     ~GfxWindowBackendSDL2() override;
 
-    void Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
+    Ship::GuiWindowInitData Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
               int32_t posX, int32_t posY) override;
     void Close() override;
     void SetKeyboardCallbacks(bool (*onKeyDown)(int scancode), bool (*onKeyUp)(int scancode),

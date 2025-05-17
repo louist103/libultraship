@@ -132,7 +132,7 @@ int GfxRenderingAPIMetal::GetMaxTextureSize() {
     return mDevice->supportsFamily(MTL::GPUFamilyApple3) ? 16384 : 8192;
 }
 
-void GfxRenderingAPIMetal::Init() {
+void GfxRenderingAPIMetal::Init(Ship::GuiWindowInitData& data) {
     // Create the default framebuffer which represents the window
     FramebufferMetal& fb = mFramebuffers[CreateFramebuffer()];
     fb.mMsaaLevel = 1;

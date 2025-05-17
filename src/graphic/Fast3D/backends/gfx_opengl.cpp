@@ -651,7 +651,7 @@ void GfxRenderingAPIOGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size
     glDrawArrays(GL_TRIANGLES, 0, 3 * buf_vbo_num_tris);
 }
 
-void GfxRenderingAPIOGL::Init() {
+void GfxRenderingAPIOGL::Init(Ship::GuiWindowInitData& init_data) {
 #ifndef __linux__
     glewInit();
 #endif
