@@ -250,7 +250,7 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
         { "o_do_single", M_ARRAY(cc_features.do_single, bool, 2, 2) },
         { "o_do_multiply", M_ARRAY(cc_features.do_multiply, bool, 2, 2) },
         { "o_color_alpha_same", M_ARRAY(cc_features.color_alpha_same, bool, 2) },
-        { "o_current_filter", llgl_state.current_filter_mode },
+{ "o_three_point_filtering", llgl_state.current_filter_mode == FILTER_THREE_POINT },
         { "FILTER_THREE_POINT", Fast::FILTER_THREE_POINT },
         { "FILTER_LINEAR", Fast::FILTER_LINEAR },
         { "FILTER_NONE", Fast::FILTER_NONE },
@@ -291,14 +291,14 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    // SPDLOG_INFO("=========== FRAGMENT SHADER ============");
+     SPDLOG_INFO("=========== FRAGMENT SHADER ============");
     // // print line per line with number
-    // size_t line_num = 0;
-    // for (const auto& line : StringHelper::Split(result, "\n")) {
-    //     printf("%zu: %s\n", line_num, line.c_str());
-    //     line_num++;
-    // }
-    // SPDLOG_INFO("========================================");
+     size_t line_num = 0;
+     for (const auto& line : StringHelper::Split(result, "\n")) {
+         printf("%zu: %s\n", line_num, line.c_str());
+         line_num++;
+     }
+     SPDLOG_INFO("========================================");
     return result;
 }
 
@@ -334,14 +334,14 @@ static std::string llgl_build_vs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    // SPDLOG_INFO("=========== VERTEX SHADER ============");
+     SPDLOG_INFO("=========== VERTEX SHADER ============");
     // // print line per line with number
-    // size_t line_num = 0;
-    // for (const auto& line : StringHelper::Split(result, "\n")) {
-    //     printf("%zu: %s\n", line_num, line.c_str());
-    //     line_num++;
-    // }
-    // SPDLOG_INFO("========================================");
+     size_t line_num = 0;
+     for (const auto& line : StringHelper::Split(result, "\n")) {
+         printf("%zu: %s\n", line_num, line.c_str());
+         line_num++;
+     }
+     SPDLOG_INFO("========================================");
     return result;
 }
 

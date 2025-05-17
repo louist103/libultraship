@@ -128,6 +128,7 @@ set(LLGL_GL_ENABLE_DSA_EXT ON)
 set(LLGL_GL_ENABLE_VENDOR_EXT ON)
 set(LLGL_GL_INCLUDE_EXTERNAL ON)
 if (Vulkan_FOUND)
+    message("VULKAN FOUND")
     set(LLGL_BUILD_RENDERER_VULKAN ON)
 else()
     set(LLGL_BUILD_RENDERER_VULKAN OFF)
@@ -179,8 +180,11 @@ set(SPIRV-Cross_DIR cmake/FIndPkgs)
 find_package(Vulkan REQUIRED SPIRV-Tools)
 find_package(Vulkan REQUIRED glslang)
 
-link_libraries(Vulkan::SPIRV-Tools)
+find_package(glslang REQUIRED)
+
+# link_libraries(Vulkan::SPIRV-Tools)
 link_libraries(Vulkan::glslang)
+link_libraries(glslang::glslang glslang::glslang-default-resource-limits glslang::SPIRV glslang::SPVRemapper)
 
 find_package(SPIRV-Cross REQUIRED)
 link_libraries(

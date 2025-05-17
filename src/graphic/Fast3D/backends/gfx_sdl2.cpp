@@ -320,6 +320,8 @@ static LRESULT CALLBACK gfx_sdl_wnd_proc(HWND h_wnd, UINT message, WPARAM w_para
 };
 #endif
 
+Ship::GuiWindowInitData window_impl{};
+
 Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bool startFullScreen, uint32_t width,
                                 uint32_t height, int32_t posX, int32_t posY) {
     mWindowWidth = width;
@@ -337,14 +339,15 @@ Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const c
     char title[512];
     int len = snprintf(title, 512, "%s (%s)", "MM","LLGL");
 
-    Ship::GuiWindowInitData window_impl{};
+    ;
     bool use_llgl = true;
     if (use_llgl) {
         window_impl.LLGL = { std::make_shared<SDLSurface>(
                                  LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
-                                 LLGL::RendererID::Vulkan, window_impl.LLGL.desc),
+                                 LLGL::RendererID::OpenGL, window_impl.LLGL.desc),
                              window_impl.LLGL.desc };
         mWnd = window_impl.LLGL.Window->wnd;
+
         return window_impl;
     }
 

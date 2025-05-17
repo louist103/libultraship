@@ -5,7 +5,7 @@
 @if(o_textures[0]) layout(binding = @{get_binding_index()}) uniform sampler2D uTex0;
 @if(o_textures[1]) layout(binding = @{get_binding_index()}) uniform sampler2D uTex1;
 
-if(o_masks[0]) layout(binding = @{get_binding_index()}) uniform sampler2D uTexMask0;
+@if(o_masks[0]) layout(binding = @{get_binding_index()}) uniform sampler2D uTexMask0;
 @if(o_masks[1]) layout(binding = @{get_binding_index()}) uniform sampler2D uTexMask1;
 
 @if(o_blend[0]) layout(binding = @{get_binding_index()}) uniform sampler2D uTexBlend0;
@@ -34,7 +34,7 @@ layout(std140, binding = @{get_binding_index()}) uniform NoiseScale {
 @end
 
 @if(o_fog) layout(location = @{get_input_location()}) in vec4 vFog;
-if(o_grayscale) layout(location = @{get_input_location()}) in vec4 vGrayscaleColor;
+@if(o_grayscale) layout(location = @{get_input_location()}) in vec4 vGrayscaleColor;
 
 @for(i in 0..o_inputs)
     @if(o_alpha)
@@ -45,6 +45,7 @@ if(o_grayscale) layout(location = @{get_input_location()}) in vec4 vGrayscaleCol
 @end
 
 
+#define TEX_OFFSET(off) texture(tex, texCoord - off / texSize)
 #define WRAP(x, low, high) mod((x)-(low), (high)-(low)) + (low)
 
 float random(in vec3 value) {
@@ -70,14 +71,13 @@ vec4 filter3point(in sampler2D tex, in vec2 texCoord, in vec2 texSize) {
 
 vec4 hookTexture2D(in int id, sampler2D tex, in vec2 uv, in vec2 texSize) {
 @if(o_three_point_filtering)
-    if(texture_filtering[id] == @{FILTER_THREE_POINT}) {
-        return filter3point(tex, uv, texSize);
-    }
+    // ignore the texture filtering setting for now
+    // if(texture_filtering[id] == @{FILTER_THREE_POINT}) {
+    //     return filter3point(tex, uv, texSize);
+    // }
 @end
     return texture(tex, uv);
 }
-
-#define TEX_SIZE(tex) vec2(texture_width[tex], texture_height[tex])
 
 layout(location = 0) out vec4 fragColor;
 
@@ -87,7 +87,7 @@ void main() {
             @{s = o_clamp[i][0]}
             @{t = o_clamp[i][1]}
 
-            vec2 texSize@{i} = TEX_SIZE(@{i});
+            vec2 texSize@{i} = textureSize(uTex@{i}, 0);
 
             @if(!s && !t)
                 vec2 vTexCoordAdj@{i} = vTexCoord@{i};

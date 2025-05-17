@@ -52,6 +52,8 @@ Fast3dWindow::~Fast3dWindow() {
     delete mWindowManagerApi;
 }
 
+extern Ship::GuiWindowInitData window_impl;
+
 void Fast3dWindow::Init() {
     bool gameMode = false;
 
@@ -94,6 +96,8 @@ void Fast3dWindow::Init() {
     InitWindowManager();
     mInterpreter->Init(mWindowManagerApi, mRenderingApi, Ship::Context::GetInstance()->GetName().c_str(), isFullscreen,
                        width, height, posX, posY);
+    Ship::Context::GetInstance()->GetWindow()->GetGui()->Init(window_impl);
+
     mWindowManagerApi->SetFullscreenChangedCallback(OnFullscreenChanged);
     mWindowManagerApi->SetKeyboardCallbacks(KeyDown, KeyUp, AllKeysUp);
     mWindowManagerApi->SetMouseCallbacks(MouseButtonDown, MouseButtonUp);

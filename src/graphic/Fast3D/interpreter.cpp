@@ -4175,6 +4175,7 @@ void Interpreter::Init(class GfxWindowBackend* wapi, class GfxRenderingAPI* rapi
     mRapi = rapi;
     auto windowImpl = mWapi->Init(game_name, rapi->GetName(), start_in_fullscreen, width, height, posX, posY);
     mRapi->Init(windowImpl);
+
     mRapi->UpdateFramebufferParameters(0, width, height, 1, false, true, true, true);
     mCurDimensions.internal_mul = CVarGetFloat(CVAR_INTERNAL_RESOLUTION, 1);
     mMsaaLevel = CVarGetInteger(CVAR_MSAA_VALUE, 1);
