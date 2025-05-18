@@ -4173,8 +4173,8 @@ void Interpreter::Init(class GfxWindowBackend* wapi, class GfxRenderingAPI* rapi
                        bool start_in_fullscreen, uint32_t width, uint32_t height, uint32_t posX, uint32_t posY) {
     mWapi = wapi;
     mRapi = rapi;
-    auto windowImpl = mWapi->Init(game_name, rapi->GetName(), start_in_fullscreen, width, height, posX, posY);
-    mRapi->Init(windowImpl);
+    mWapi->Init(game_name, rapi->GetName(), start_in_fullscreen, width, height, posX, posY);
+    mRapi->Init();
 
     mRapi->UpdateFramebufferParameters(0, width, height, 1, false, true, true, true);
     mCurDimensions.internal_mul = CVarGetFloat(CVAR_INTERNAL_RESOLUTION, 1);

@@ -9,7 +9,7 @@ class GfxWindowBackendSDL2 final : public GfxWindowBackend {
     GfxWindowBackendSDL2() = default;
     ~GfxWindowBackendSDL2() override;
 
-    Ship::GuiWindowInitData Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
+    void Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
               int32_t posX, int32_t posY) override;
     void Close() override;
     void SetKeyboardCallbacks(bool (*onKeyDown)(int scancode), bool (*onKeyUp)(int scancode),

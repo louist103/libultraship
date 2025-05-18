@@ -5,10 +5,35 @@
 #include <stdbool.h>
 #include "window/gui/Gui.h"
 namespace Fast {
+
+typedef struct {
+  struct {
+    void* Window;
+    void* DeviceContext;
+    void* Device;
+  } Dx11;
+  struct {
+    void* Window;
+    void* Context;
+  } Opengl;
+  struct {
+    void* Window;
+    SDL_Renderer* Renderer;
+  } Metal;
+  struct {
+    std::shared_ptr<SDLSurface> Window;
+    LLGL::RenderSystemDescriptor desc;
+  } LLGL;
+  struct {
+    uint32_t Width;
+    uint32_t Height;
+  } Gx2;
+} GuiWindowInitData;
+
 class GfxWindowBackend {
   public:
     virtual ~GfxWindowBackend() = default;
-    virtual Ship::GuiWindowInitData Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
+    virtual void Init(const char* gameName, const char* apiName, bool startFullScreen, uint32_t width, uint32_t height,
                       int32_t posX, int32_t posY) = 0;
     virtual void Close() = 0;
     virtual void SetKeyboardCallbacks(bool (*mOnKeyDown)(int scancode), bool (*mOnKeyUp)(int scancode),
@@ -38,7 +63,10 @@ class GfxWindowBackend {
     virtual bool IsRunning() = 0;
     virtual void Destroy() = 0;
     virtual bool IsFullscreen() = 0;
-
+    GuiWindowInitData* GetInitDataPtr() {
+      return &mInitData;
+    }
+  GuiWindowInitData mInitData {};
   protected:
     void (*mOnFullscreenChanged)(bool isNowFullscreen);
     bool (*mOnKeyDown)(int scancode);

@@ -11,6 +11,7 @@ extern LLGL::CommandBuffer* llgl_cmdBuffer;
 namespace Fast {
 class GfxRenderingAPILLGL : public GfxRenderingAPI {
 public:
+  GfxRenderingAPILLGL(GfxWindowBackend* backend);
       ~GfxRenderingAPILLGL() override = default;
     const char* GetName() override;
     int GetMaxTextureSize() override;
@@ -30,7 +31,7 @@ public:
     void SetScissor(int x, int y, int width, int height) override;
     void SetUseAlpha(bool useAlpha) override;
     void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) override;
-    void Init(Ship::GuiWindowInitData& init_data) override;
+    void Init() override;
     void OnResize() override;
     void StartFrame() override;
     void EndFrame() override;

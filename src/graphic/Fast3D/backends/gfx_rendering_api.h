@@ -9,6 +9,7 @@
 
 #include "window/gui/Gui.h"
 
+
 namespace Fast {
 struct ShaderProgram;
 
@@ -29,6 +30,8 @@ struct hash_pair_ff {
         return (hash1 != hash2) ? hash1 ^ hash2 : hash1;
     }
 };
+
+class GfxWindowBackend;
 
 class GfxRenderingAPI {
   public:
@@ -51,7 +54,7 @@ class GfxRenderingAPI {
     virtual void SetScissor(int x, int y, int width, int height) = 0;
     virtual void SetUseAlpha(bool useAlpha) = 0;
     virtual void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) = 0;
-    virtual void Init(Ship::GuiWindowInitData& init_data) = 0;
+    virtual void Init() = 0;
     virtual void OnResize() = 0;
     virtual void StartFrame() = 0;
     virtual void EndFrame() = 0;
@@ -77,6 +80,7 @@ class GfxRenderingAPI {
     virtual ImTextureID GetTextureById(int id) = 0;
 
   protected:
+    GfxWindowBackend* mWindowBackend = nullptr;
     int8_t mCurrentDepthTest = 0;
     int8_t mCurrentDepthMask = 0;
     int8_t mCurrentZmodeDecal = 0;

@@ -32,29 +32,6 @@ class Interpreter;
 
 namespace Ship {
 
-typedef struct {
-    struct {
-        void* Window;
-        void* DeviceContext;
-        void* Device;
-    } Dx11;
-    struct {
-        void* Window;
-        void* Context;
-    } Opengl;
-    struct {
-        void* Window;
-        SDL_Renderer* Renderer;
-    } Metal;
-    struct {
-        std::shared_ptr<SDLSurface> Window;
-        LLGL::RenderSystemDescriptor desc;
-    } LLGL;
-    struct {
-        uint32_t Width;
-        uint32_t Height;
-    } Gx2;
-} GuiWindowInitData;
 typedef union {
     struct {
         void* Handle;
@@ -76,7 +53,7 @@ class Gui {
     explicit Gui(std::vector<std::shared_ptr<GuiWindow>> guiWindows);
     virtual ~Gui();
 
-    void Init(GuiWindowInitData windowImpl);
+    void Init();
     void ImGuiNewFrame();
     void StartDraw();
     void EndDraw();
@@ -137,7 +114,6 @@ class Gui {
     std::weak_ptr<Fast::Interpreter> mInterpreter;
 
   private:
-    GuiWindowInitData mImpl;
     bool mNeedsConsoleVariableSave;
     std::shared_ptr<GameOverlay> mGameOverlay;
     std::shared_ptr<GuiMenuBar> mMenuBar;

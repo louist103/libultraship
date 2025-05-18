@@ -52,8 +52,6 @@ Fast3dWindow::~Fast3dWindow() {
     delete mWindowManagerApi;
 }
 
-extern Ship::GuiWindowInitData window_impl;
-
 void Fast3dWindow::Init() {
     bool gameMode = false;
 
@@ -96,7 +94,7 @@ void Fast3dWindow::Init() {
     InitWindowManager();
     mInterpreter->Init(mWindowManagerApi, mRenderingApi, Ship::Context::GetInstance()->GetName().c_str(), isFullscreen,
                        width, height, posX, posY);
-    Ship::Context::GetInstance()->GetWindow()->GetGui()->Init(window_impl);
+    Ship::Context::GetInstance()->GetWindow()->GetGui()->Init();
 
     mWindowManagerApi->SetFullscreenChangedCallback(OnFullscreenChanged);
     mWindowManagerApi->SetKeyboardCallbacks(KeyDown, KeyUp, AllKeysUp);
@@ -133,8 +131,8 @@ void Fast3dWindow::InitWindowManager() {
 #endif
 #ifdef ENABLE_OPENGL
         case Ship::WindowBackend::FAST3D_SDL_OPENGL:
-            mRenderingApi = new GfxRenderingAPIOGL();
             mWindowManagerApi = new GfxWindowBackendSDL2();
+            mRenderingApi = new GfxRenderingAPIOGL(mWindowManagerApi);
             break;
 #endif
 #ifdef __APPLE__
@@ -144,8 +142,8 @@ void Fast3dWindow::InitWindowManager() {
             break;
 #endif
         case Ship::WindowBackend::FAST3D_SDL_LLGL:
-            mRenderingApi = new GfxRenderingAPILLGL();
             mWindowManagerApi = new GfxWindowBackendSDL2();
+           mRenderingApi = new GfxRenderingAPILLGL(mWindowManagerApi);
             break;
         default:
             SPDLOG_ERROR("Could not load the correct rendering backend");

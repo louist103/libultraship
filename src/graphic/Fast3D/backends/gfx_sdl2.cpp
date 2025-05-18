@@ -320,9 +320,7 @@ static LRESULT CALLBACK gfx_sdl_wnd_proc(HWND h_wnd, UINT message, WPARAM w_para
 };
 #endif
 
-Ship::GuiWindowInitData window_impl{};
-
-Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bool startFullScreen, uint32_t width,
+void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bool startFullScreen, uint32_t width,
                                 uint32_t height, int32_t posX, int32_t posY) {
     mWindowWidth = width;
     mWindowHeight = height;
@@ -342,13 +340,12 @@ Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const c
     ;
     bool use_llgl = true;
     if (use_llgl) {
-        window_impl.LLGL = { std::make_shared<SDLSurface>(
+        mInitData.LLGL = { std::make_shared<SDLSurface>(
                                  LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
-                                 LLGL::RendererID::OpenGL, window_impl.LLGL.desc),
-                             window_impl.LLGL.desc };
-        mWnd = window_impl.LLGL.Window->wnd;
-
-        return window_impl;
+                                 LLGL::RendererID::OpenGL, mInitData.LLGL.desc),
+                             mInitData.LLGL.desc };
+        mWnd = mInitData.LLGL.Window->wnd;
+        return;
     }
 
 
@@ -425,7 +422,7 @@ Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const c
         SDL_GL_MakeCurrent(mWnd, mCtx);
         SDL_GL_SetSwapInterval(mVsyncEnabled ? 1 : 0);
 
-        window_impl.Opengl = { mWnd, mCtx };
+        mInitData.Opengl = { mWnd, mCtx };
     } else {
         uint32_t flags = SDL_RENDERER_ACCELERATED;
         if (mVsyncEnabled) {
@@ -434,7 +431,7 @@ Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const c
         mRenderer = SDL_CreateRenderer(mWnd, -1, flags);
         if (mRenderer == nullptr) {
             SPDLOG_ERROR("Error creating renderer: {}", SDL_GetError());
-            return window_impl;
+            return;
         }
 
         if (startFullScreen) {
@@ -442,10 +439,10 @@ Ship::GuiWindowInitData GfxWindowBackendSDL2::Init(const char* gameName, const c
         }
 
         SDL_GetRendererOutputSize(mRenderer, &mWindowWidth, &mWindowHeight);
-        window_impl.Metal = { mWnd, mRenderer };
+        mInitData.Metal = { mWnd, mRenderer };
     }
 
-    Ship::Context::GetInstance()->GetWindow()->GetGui()->Init(window_impl);
+    Ship::Context::GetInstance()->GetWindow()->GetGui()->Init();
 
     for (size_t i = 0; i < std::size(lus_to_sdl_table); i++) {
         mSdlToLusTable[lus_to_sdl_table[i]] = i;

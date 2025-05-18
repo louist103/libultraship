@@ -28,6 +28,10 @@
 #include <public/bridge/consolevariablebridge.h>
 
 namespace Fast {
+ GfxRenderingAPIOGL::GfxRenderingAPIOGL(GfxWindowBackend* backend) {
+    mWindowBackend = backend;
+}
+
 int GfxRenderingAPIOGL::GetMaxTextureSize() {
     GLint max_texture_size;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
@@ -651,7 +655,7 @@ void GfxRenderingAPIOGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size
     glDrawArrays(GL_TRIANGLES, 0, 3 * buf_vbo_num_tris);
 }
 
-void GfxRenderingAPIOGL::Init(Ship::GuiWindowInitData& init_data) {
+void GfxRenderingAPIOGL::Init() {
 #ifndef __linux__
     glewInit();
 #endif

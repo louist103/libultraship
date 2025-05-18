@@ -16,6 +16,7 @@
 #include "../../../resource/type/Shader.h"
 #include <Context.h>
 #include "../shader_translation.h"
+#include "graphic/Fast3D/Fast3dWindow.h"
 
 #include "utils/StringHelper.h"
 
@@ -31,6 +32,11 @@ struct {
     Fast::FilteringMode current_filter_mode = Fast::FILTER_NONE;
 } llgl_state;
 namespace Fast {
+
+GfxRenderingAPILLGL::GfxRenderingAPILLGL(GfxWindowBackend* backend) {
+    mWindowBackend = backend;
+}
+
 const char* Fast::GfxRenderingAPILLGL::GetName(void) {
     // renderer->GetName();
     return "LLGL";
@@ -507,12 +513,14 @@ void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
 }
 
 void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) {
+    //llgl_cmdBuffer->SetVertexBuffer(buf_vbo)
 }
 
-void Fast::GfxRenderingAPILLGL::Init(Ship::GuiWindowInitData& init_data) {
+void Fast::GfxRenderingAPILLGL::Init() {
     LLGL::Report report;
 
-    llgl_renderer = LLGL::RenderSystem::Load(init_data.LLGL.desc, &report);
+
+    llgl_renderer = LLGL::RenderSystem::Load(mWindowBackend->mInitData.LLGL.desc, &report);
 
     if (!llgl_renderer) {
         auto a = report.GetText();
@@ -528,7 +536,7 @@ void Fast::GfxRenderingAPILLGL::Init(Ship::GuiWindowInitData& init_data) {
     LLGL::SwapChainDescriptor swapChainDesc;
     swapChainDesc.resolution = { 800, 400 };
     swapChainDesc.resizable = true;
-    llgl_swapChain = llgl_renderer->CreateSwapChain(swapChainDesc, init_data.LLGL.Window);
+    llgl_swapChain = llgl_renderer->CreateSwapChain(swapChainDesc, mWindowBackend->mInitData.LLGL.Window);
 
     llgl_cmdBuffer = llgl_renderer->CreateCommandBuffer(LLGL::CommandBufferFlags::ImmediateSubmit);
 }

@@ -102,8 +102,7 @@ Gui::~Gui() {
     SPDLOG_TRACE("destruct gui");
 }
 
-void Gui::Init(GuiWindowInitData windowImpl) {
-    mImpl = windowImpl;
+void Gui::Init() {
     ImGuiContext* ctx = ImGui::CreateContext();
     ImGui::SetCurrentContext(ctx);
     mImGuiIo = &ImGui::GetIO();
@@ -154,19 +153,20 @@ void Gui::Init(GuiWindowInitData windowImpl) {
         std::make_shared<ResourceFactoryBinaryGuiTextureV0>(), RESOURCE_FORMAT_BINARY, "GuiTexture",
         static_cast<uint32_t>(RESOURCE_TYPE_GUI_TEXTURE), 0);
 
-    ImGuiWMInit();
-    mInterpreter = dynamic_pointer_cast<Fast::Fast3dWindow>(Context::GetInstance()->GetWindow())->GetInterpreterWeak();
-    ImGuiBackendInit();
 
     mInterpreter = dynamic_pointer_cast<Fast::Fast3dWindow>(Context::GetInstance()->GetWindow())->GetInterpreterWeak();
+    ImGuiWMInit();
+    ImGuiBackendInit();
+
 }
 
 void Gui::ImGuiWMInit() {
+    Fast::GuiWindowInitData* mImpl = mInterpreter.lock()->mWapi->GetInitDataPtr();
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
         case WindowBackend::FAST3D_SDL_OPENGL:
             SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
             SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-            ImGui_ImplSDL2_InitForOpenGL(static_cast<SDL_Window*>(mImpl.Opengl.Window), mImpl.Opengl.Context);
+            ImGui_ImplSDL2_InitForOpenGL(static_cast<SDL_Window*>(mImpl->Opengl.Window), mImpl->Opengl.Context);
             break;
 #if __APPLE__
         case WindowBackend::FAST3D_SDL_METAL:
@@ -181,7 +181,7 @@ void Gui::ImGuiWMInit() {
             break;
 #endif
         case WindowBackend::FAST3D_SDL_LLGL:
-            InitImGui(*mImpl.LLGL.Window, llgl_renderer, llgl_swapChain, llgl_cmdBuffer);
+            InitImGui(*mImpl->LLGL.Window, llgl_renderer, llgl_swapChain, llgl_cmdBuffer);
         break;
         default:
             break;
@@ -700,10 +700,11 @@ void Gui::DrawGame() {
 }
 
 void Gui::DrawFloatingWindows() {
+    Fast::GuiWindowInitData* mImpl = mInterpreter.lock()->mWapi->GetInitDataPtr();
     if (mImGuiIo->ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
         WindowBackend backend = Context::GetInstance()->GetWindow()->GetWindowBackend();
         // OpenGL requires extra platform handling on the GL mContext
-        if (backend == WindowBackend::FAST3D_SDL_OPENGL && mImpl.Opengl.Context != nullptr) {
+        if (backend == WindowBackend::FAST3D_SDL_OPENGL && mImpl->Opengl.Context != nullptr) {
             // Backup window and mContext before calling RenderPlatformWindowsDefault
             SDL_Window* backupCurrentWindow = SDL_GL_GetCurrentWindow();
             SDL_GLContext backupCurrentContext = SDL_GL_GetCurrentContext();
