@@ -341,7 +341,7 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     if (use_llgl) {
         mInitData.LLGL = { std::make_shared<SDLSurface>(
                                  LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
-                                 LLGL::RendererID::OpenGL, mInitData.LLGL.desc),
+                                 LLGL::RendererID::Vulkan, mInitData.LLGL.desc),
                              mInitData.LLGL.desc };
         mWnd = mInitData.LLGL.Window->wnd;
         return;

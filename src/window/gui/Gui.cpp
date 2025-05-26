@@ -583,7 +583,6 @@ void Gui::EndFrame() {
     // Draw the ImGui "viewports" which are the floating windows.
     ImGui::Render();
     ImGuiRenderDrawData(ImGui::GetDrawData());
-    ImGui::EndFrame();
 }
 
 void Gui::CalculateGameViewport() {
@@ -752,10 +751,10 @@ void Gui::EndDraw() {
     DrawMenu();
     // Draw the game framebuffer into ImGui
     DrawGame();
-    // End the frame
-    EndFrame();
     // Draw the ImGui floating windows.
     DrawFloatingWindows();
+    // End the frame
+    EndFrame();
     // Check if the CVars need to be saved, and do it if so.
     CheckSaveCvars();
 }
