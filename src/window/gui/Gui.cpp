@@ -745,7 +745,8 @@ void Gui::StartDraw() {
 
 void Gui::EndDraw() {
     // Draw the gui menus
-    ImGui::NewFrame();
+    // ImGui::NewFrame();
+    ImGuiNewFrame();
     // Calculate the available space the game can render to
     CalculateGameViewport();
     DrawMenu();

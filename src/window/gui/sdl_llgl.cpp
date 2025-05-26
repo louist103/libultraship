@@ -50,7 +50,7 @@ SDLSurface::SDLSurface(const LLGL::Extent2D& size, const char* title, int render
 
             SDL_GL_MakeCurrent(wnd, ctx);
 
-            handle = LLGL::OpenGL::RenderSystemNativeHandle{ (GLXContext)ctx };
+            handle = LLGL::OpenGL::RenderSystemNativeHandle{ LLGL::OpenGL::RenderSystemNativeType::GLX ,(GLXContext)ctx };
 
             desc.nativeHandle = (void*)&handle;
             desc.nativeHandleSize = sizeof(LLGL::OpenGL::RenderSystemNativeHandle);
@@ -101,8 +101,15 @@ bool SDLSurface::GetNativeHandle(void* nativeHandle, std::size_t nativeHandleSiz
 #elif defined(__APPLE__)
     nativeHandlePtr->responder = wmInfo.info.cocoa.window;
 #else
-    nativeHandlePtr->display = wmInfo.info.x11.display;
-    nativeHandlePtr->window = wmInfo.info.x11.window;
+    if (wmInfo.subsystem == SDL_SYSWM_WAYLAND) { // experimental
+        nativeHandlePtr->type = LLGL::NativeType::Wayland;
+        nativeHandlePtr->wayland.window = wmInfo.info.wl.surface;
+        nativeHandlePtr->wayland.display = wmInfo.info.wl.display;
+    } else if (wmInfo.subsystem == SDL_SYSWM_X11) {
+        nativeHandlePtr->type = LLGL::NativeType::X11;
+        nativeHandlePtr->x11.display = wmInfo.info.x11.display;
+        nativeHandlePtr->x11.window = wmInfo.info.x11.window;
+    }
 #endif
     return true;
 }

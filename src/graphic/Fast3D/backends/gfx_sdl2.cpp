@@ -337,7 +337,6 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     char title[512];
     int len = snprintf(title, 512, "%s (%s)", "MM","LLGL");
 
-    ;
     bool use_llgl = true;
     if (use_llgl) {
         mInitData.LLGL = { std::make_shared<SDLSurface>(

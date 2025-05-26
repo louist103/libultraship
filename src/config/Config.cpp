@@ -291,6 +291,8 @@ WindowBackend Config::GetWindowBackend() {
         return static_cast<WindowBackend>(backendId);
     }
 
+    return WindowBackend::FAST3D_SDL_LLGL;
+
     SPDLOG_TRACE(
         "Could not find available WindowBackend matching id from config file ({}). Returning default WindowBackend.",
         backendId);

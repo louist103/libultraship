@@ -297,14 +297,14 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-     SPDLOG_INFO("=========== FRAGMENT SHADER ============");
+    //  SPDLOG_INFO("=========== FRAGMENT SHADER ============");
     // // print line per line with number
-     size_t line_num = 0;
-     for (const auto& line : StringHelper::Split(result, "\n")) {
-         printf("%zu: %s\n", line_num, line.c_str());
-         line_num++;
-     }
-     SPDLOG_INFO("========================================");
+    //  size_t line_num = 0;
+    //  for (const auto& line : StringHelper::Split(result, "\n")) {
+    //      printf("%zu: %s\n", line_num, line.c_str());
+    //      line_num++;
+    //  }
+    //  SPDLOG_INFO("========================================");
     return result;
 }
 
@@ -340,14 +340,14 @@ static std::string llgl_build_vs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-     SPDLOG_INFO("=========== VERTEX SHADER ============");
+    //  SPDLOG_INFO("=========== VERTEX SHADER ============");
     // // print line per line with number
-     size_t line_num = 0;
-     for (const auto& line : StringHelper::Split(result, "\n")) {
-         printf("%zu: %s\n", line_num, line.c_str());
-         line_num++;
-     }
-     SPDLOG_INFO("========================================");
+    //  size_t line_num = 0;
+    //  for (const auto& line : StringHelper::Split(result, "\n")) {
+    //      printf("%zu: %s\n", line_num, line.c_str());
+    //      line_num++;
+    //  }
+    //  SPDLOG_INFO("========================================");
     return result;
 }
 
@@ -456,7 +456,7 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
 
     const auto vs_buf = llgl_build_vs_shader(cc_features);
     const auto fs_buf = llgl_build_fs_shader(cc_features);
-    auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf);
+    // auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf);
     return nullptr;
 }
 

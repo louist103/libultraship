@@ -11,25 +11,3 @@ index 2a51382d..57cc8dec 100644
      else()
          project(LLGL LANGUAGES C CXX)
      endif()
-@@ -90,7 +90,7 @@ endif()
- 
- # === Build path ===
- 
--set(LLGL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/build" CACHE PATH "Override binary output directory")
-+# set(LLGL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/build" CACHE PATH "Override binary output directory")
- 
- set( EXTERNAL_MODULE_DIR            "${PROJECT_SOURCE_DIR}/cmake"                   )
- set( PROJECT_INCLUDE_DIR            "${PROJECT_SOURCE_DIR}/include"                 )
-@@ -169,6 +169,12 @@ endif()
- 
- if(NOT LLGL_UWP_PLATFORM)
-     option(LLGL_BUILD_RENDERER_VULKAN "Include Vulkan renderer project (experimental)" OFF)
-+    find_package(Vulkan QUIET)
-+    if (Vulkan_FOUND)
-+    set(LLGL_BUILD_RENDERER_VULKAN ON)
-+    else()
-+    set(LLGL_BUILD_RENDERER_VULKAN OFF)
-+    endif()
- endif()
- 
- if(WIN32)

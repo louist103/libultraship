@@ -35,7 +35,7 @@ Fast3dWindow::Fast3dWindow(std::shared_ptr<Ship::Gui> gui) : Ship::Window(gui) {
     }
 #endif
     AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_LLGL);
-    AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_OPENGL);
+    // AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_OPENGL);
 }
 
 Fast3dWindow::Fast3dWindow(std::vector<std::shared_ptr<Ship::GuiWindow>> guiWindows)
@@ -116,6 +116,7 @@ void Fast3dWindow::GetPixelDepthPrepare(float x, float y) {
 }
 
 uint16_t Fast3dWindow::GetPixelDepth(float x, float y) {
+    return 0;
     return mInterpreter->GetPixelDepth(x, y);
 }
 
