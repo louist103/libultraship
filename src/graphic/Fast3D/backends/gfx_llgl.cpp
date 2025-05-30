@@ -155,7 +155,7 @@ bool llgl_get_bool(prism::ContextTypes* value) {
     return false;
 }
 
-prism::ContextTypes* llgl_append_formula(prism::ContextTypes* a_arg, prism::ContextTypes* a_single,
+prism::ContextTypes* llgl_append_formula(prism::ContextItems* _, prism::ContextTypes* a_arg, prism::ContextTypes* a_single,
                                          prism::ContextTypes* a_mult, prism::ContextTypes* a_mix,
                                          prism::ContextTypes* a_with_alpha, prism::ContextTypes* a_only_alpha,
                                          prism::ContextTypes* a_alpha, prism::ContextTypes* a_first_cycle) {
@@ -209,34 +209,56 @@ std::optional<std::string> llgl_opengl_include_fs(const std::string& path) {
     return *inc;
 }
 
-static int input_index = 0;
+std::string prism_to_string(const prism::ContextTypes* value) {
+    if (std::holds_alternative<std::string>(*value)) {
+        return std::get<std::string>(*value);
+    } else if (std::holds_alternative<int>(*value)) {
+        return std::to_string(std::get<int>(*value));
+    } else if (std::holds_alternative<float>(*value)) {
+        return std::to_string(std::get<float>(*value));
+    }
+    return "";
+}
 
-prism::ContextTypes* get_input_location() {
+prism::ContextTypes* prism_context_to_string(prism::ContextItems* items, prism::ContextTypes* value) {
+    return new prism::ContextTypes{ prism_to_string(value) };
+}
+
+prism::ContextTypes* get_input_location(prism::ContextItems* items, prism::ContextTypes* name) {
+    auto name_str = std::get<std::string>(*name);
+
+    int& input_index = std::get<int>(items->at("input_index"));
     auto input = input_index;
     input_index++;
+
+    items->emplace(name_str, prism::ContextTypes{ input });
     return new prism::ContextTypes{ input };
 }
 
-static int output_index = 0;
+prism::ContextTypes* get_output_location(prism::ContextItems* items, prism::ContextTypes* name) {
+    auto name_str = std::get<std::string>(*name);
 
-prism::ContextTypes* get_output_location() {
+    int& output_index = std::get<int>(items->at("output_index"));
     auto output = output_index;
     output_index++;
+    
+    items->emplace(name_str, prism::ContextTypes{ output });
     return new prism::ContextTypes{ output };
 }
 
-static int binding_index = 1;
+prism::ContextTypes* get_binding_index(prism::ContextItems* items, prism::ContextTypes* name) {
+    auto name_str = std::get<std::string>(*name);
 
-prism::ContextTypes* get_binding_index() {
+    int& binding_index = std::get<int>(items->at("binding_index"));
     auto bind = binding_index;
     binding_index++;
+
+    items->emplace(name_str, prism::ContextTypes{ bind });
     return new prism::ContextTypes{ bind };
 }
 
 static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
     prism::Processor processor;
-    input_index = 0;
-    binding_index = 1;
     prism::ContextItems context = {
         { "o_c", M_ARRAY(cc_features.c, int, 2, 2, 4) },
         { "o_alpha", cc_features.opt_alpha },
@@ -256,7 +278,7 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
         { "o_do_single", M_ARRAY(cc_features.do_single, bool, 2, 2) },
         { "o_do_multiply", M_ARRAY(cc_features.do_multiply, bool, 2, 2) },
         { "o_color_alpha_same", M_ARRAY(cc_features.color_alpha_same, bool, 2) },
-{ "o_three_point_filtering", llgl_state.current_filter_mode == FILTER_THREE_POINT },
+        { "o_three_point_filtering", llgl_state.current_filter_mode == FILTER_THREE_POINT },
         { "FILTER_THREE_POINT", Fast::FILTER_THREE_POINT },
         { "FILTER_LINEAR", Fast::FILTER_LINEAR },
         { "FILTER_NONE", Fast::FILTER_NONE },
@@ -279,6 +301,11 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
         { "append_formula", (InvokeFunc)llgl_append_formula },
         { "get_input_location", (InvokeFunc)get_input_location },
         { "get_binding_index", (InvokeFunc)get_binding_index },
+        { "to_string", (InvokeFunc)prism_context_to_string },
+        // local variables
+        { "input_index", 0 },
+        { "binding_index", 1},
+        { "output_index", 0 },
     };
     processor.populate(context);
     auto init = std::make_shared<Ship::ResourceInitData>();
@@ -297,22 +324,22 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    //  SPDLOG_INFO("=========== FRAGMENT SHADER ============");
+    // for (const auto& item : processor.getTypes()) {
+    //     SPDLOG_INFO("{}: {}", item.first, prism_to_string((prism::ContextTypes*) &item.second));
+    // }
+    // SPDLOG_INFO("=========== FRAGMENT SHADER ============");
     // // print line per line with number
-    //  size_t line_num = 0;
-    //  for (const auto& line : StringHelper::Split(result, "\n")) {
-    //      printf("%zu: %s\n", line_num, line.c_str());
-    //      line_num++;
-    //  }
-    //  SPDLOG_INFO("========================================");
+    // size_t line_num = 0;
+    // for (const auto& line : StringHelper::Split(result, "\n")) {
+    //     printf("%zu: %s\n", line_num, line.c_str());
+    //     line_num++;
+    // }
+    // SPDLOG_INFO("========================================");
     return result;
 }
 
 static std::string llgl_build_vs_shader(const CCFeatures& cc_features) {
     prism::Processor processor;
-
-    input_index = 0;
-    output_index = 0;
 
     prism::ContextItems context = { { "o_textures", M_ARRAY(cc_features.usedTextures, bool, 2) },
                                     { "o_clamp", M_ARRAY(cc_features.clamp, bool, 2, 2) },
@@ -321,7 +348,12 @@ static std::string llgl_build_vs_shader(const CCFeatures& cc_features) {
                                     { "o_alpha", cc_features.opt_alpha },
                                     { "o_inputs", cc_features.numInputs },
                                     { "get_input_location", (InvokeFunc)get_input_location },
-                                    { "get_output_location", (InvokeFunc)get_output_location } };
+                                    { "get_output_location", (InvokeFunc)get_output_location },
+                                { "to_string", (InvokeFunc)prism_context_to_string },
+        // local variables
+        { "input_index", 0 },
+        { "binding_index", 1},
+        { "output_index", 0 }, };
     processor.populate(context);
 
     auto init = std::make_shared<Ship::ResourceInitData>();
@@ -340,14 +372,17 @@ static std::string llgl_build_vs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    //  SPDLOG_INFO("=========== VERTEX SHADER ============");
+    // for (const auto& item : processor.getTypes()) {
+    //     SPDLOG_INFO("{}: {}", item.first, prism_to_string((prism::ContextTypes*) &item.second));
+    // }
+    // SPDLOG_INFO("=========== VERTEX SHADER ============");
     // // print line per line with number
-    //  size_t line_num = 0;
-    //  for (const auto& line : StringHelper::Split(result, "\n")) {
-    //      printf("%zu: %s\n", line_num, line.c_str());
-    //      line_num++;
-    //  }
-    //  SPDLOG_INFO("========================================");
+    // size_t line_num = 0;
+    // for (const auto& line : StringHelper::Split(result, "\n")) {
+    //     printf("%zu: %s\n", line_num, line.c_str());
+    //     line_num++;
+    // }
+    // SPDLOG_INFO("========================================");
     return result;
 }
 
@@ -456,7 +491,7 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
 
     const auto vs_buf = llgl_build_vs_shader(cc_features);
     const auto fs_buf = llgl_build_fs_shader(cc_features);
-    // auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf);
+    auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf);
     return nullptr;
 }
 
