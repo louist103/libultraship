@@ -2,20 +2,20 @@
 
 #version 450 core
 
-layout(location = @{get_input_location("aVtxPos")}) in vec4 aVtxPos;
+layout(location = @{get_vs_input_location("aVtxPos", "RGBA32Float")}) in vec4 aVtxPos;
 
 @for(i in 0..2)
     @if(o_textures[i])
-        layout(location = @{get_input_location("aTexCoord" + to_string(i))}) in vec2 aTexCoord@{i};
-        layout(location = @{get_output_location("aTexCoord" + to_string(i))}) out vec2 vTexCoord@{i};
+        layout(location = @{get_vs_input_location("aTexCoord" + to_string(i), "RG32Float")}) in vec2 aTexCoord@{i};
+        layout(location = @{get_output_location()}) out vec2 vTexCoord@{i};
         @for(j in 0..2)
             @if(o_clamp[i][j])
                 @if(j == 0)
-                    layout(location = @{get_input_location("aTexClampS" + to_string(i))}) in float aTexClampS@{i};
-                    layout(location = @{get_output_location("vTexClampS" + to_string(i))}) out float vTexClampS@{i};
+                    layout(location = @{get_vs_input_location("aTexClampS" + to_string(i), "R32Float")}) in float aTexClampS@{i};
+                    layout(location = @{get_output_location()}) out float vTexClampS@{i};
                 @else
-                    layout(location = @{get_input_location("aTexClampT" + to_string(i))}) in float aTexClampT@{i};
-                    layout(location = @{get_output_location("vTexClampT" + to_string(i))}) out float vTexClampT@{i};
+                    layout(location = @{get_vs_input_location("aTexClampT" + to_string(i), "R32Float")}) in float aTexClampT@{i};
+                    layout(location = @{get_output_location()}) out float vTexClampT@{i};
                 @end
             @end
         @end
@@ -23,22 +23,22 @@ layout(location = @{get_input_location("aVtxPos")}) in vec4 aVtxPos;
 @end
 
 @if(o_fog)
-    layout(location = @{get_input_location("aFog")}) in vec4 aFog;
-    layout(location = @{get_output_location("vFog")}) out vec4 vFog;
+    layout(location = @{get_vs_input_location("aFog", "RGBA32Float")}) in vec4 aFog;
+    layout(location = @{get_output_location()}) out vec4 vFog;
 @end
 
 @if(o_grayscale)
-    layout(location = @{get_input_location("aGrayscaleColor")}) in vec4 aGrayscaleColor;
-    layout(location = @{get_output_location("vGrayscaleColor")}) out vec4 vGrayscaleColor;
+    layout(location = @{get_vs_input_location("aGrayscaleColor", "RGBA32Float")}) in vec4 aGrayscaleColor;
+    layout(location = @{get_output_location()}) out vec4 vGrayscaleColor;
 @end
 
 @for(i in 0..o_inputs)
     @if(o_alpha)
-        layout(location = @{get_input_location("aInput" + to_string(i+1))}) in vec4 aInput@{i + 1};
-        layout(location = @{get_output_location("vInput" + to_string(i+1))}) out vec4 vInput@{i + 1};
+        layout(location = @{get_vs_input_location("aInput" + to_string(i+1), "RGBA32Float")}) in vec4 aInput@{i + 1};
+        layout(location = @{get_output_location()}) out vec4 vInput@{i + 1};
     @else
-        layout(location = @{get_input_location("aInput" + to_string(i+1))}) in vec3 aInput@{i + 1};
-        layout(location = @{get_output_location("vInput" + to_string(i+1))}) out vec3 vInput@{i + 1};
+        layout(location = @{get_vs_input_location("aInput" + to_string(i+1), "RGB32Float")}) in vec3 aInput@{i + 1};
+        layout(location = @{get_output_location()}) out vec3 vInput@{i + 1};
     @end
 @end
 

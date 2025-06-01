@@ -43,11 +43,11 @@ std::stack<std::string> currentDir;
 #define SUPPORT_CHECK(x) assert(x)
 
 // SCALE_M_N: upscale/downscale M-bit integer to N-bit
-#define SCALE_5_8(VAL_) (((VAL_)*0xFF) / 0x1F)
+#define SCALE_5_8(VAL_) (((VAL_) * 0xFF) / 0x1F)
 #define SCALE_8_5(VAL_) ((((VAL_) + 4) * 0x1F) / 0xFF)
-#define SCALE_4_8(VAL_) ((VAL_)*0x11)
+#define SCALE_4_8(VAL_) ((VAL_) * 0x11)
 #define SCALE_8_4(VAL_) ((VAL_) / 0x11)
-#define SCALE_3_8(VAL_) ((VAL_)*0x24)
+#define SCALE_3_8(VAL_) ((VAL_) * 0x24)
 #define SCALE_8_3(VAL_) ((VAL_) / 0x24)
 
 // Based off the current set native dimensions or active framebuffer
@@ -1173,7 +1173,7 @@ void Interpreter::GfxSpVertex(size_t n_vertices, size_t dest_index, const F3DVtx
 
         float world_pos[3] = { 0.0 };
         if (mRsp->geometry_mode & G_LIGHTING_POSITIONAL) {
-            float(*mtx)[4] = mRsp->modelview_matrix_stack[mRsp->modelview_matrix_stack_size - 1];
+            float (*mtx)[4] = mRsp->modelview_matrix_stack[mRsp->modelview_matrix_stack_size - 1];
             world_pos[0] = v->ob[0] * mtx[0][0] + v->ob[1] * mtx[1][0] + v->ob[2] * mtx[2][0] + mtx[3][0];
             world_pos[1] = v->ob[0] * mtx[0][1] + v->ob[1] * mtx[1][1] + v->ob[2] * mtx[2][1] + mtx[3][1];
             world_pos[2] = v->ob[0] * mtx[0][2] + v->ob[1] * mtx[1][2] + v->ob[2] * mtx[2][2] + mtx[3][2];
@@ -2516,7 +2516,7 @@ void Interpreter::Gfxs2dexBgCopy(F3DuObjBg* bg) {
         rawTexMetadata.v_pixel_scale = tex->VPixelScale;
         rawTexMetadata.type = tex->Type;
         rawTexMetadata.resource = tex;
-        data = (uintptr_t) reinterpret_cast<char*>(tex->ImageData);
+        data = (uintptr_t)reinterpret_cast<char*>(tex->ImageData);
     }
 
     s16 dsdx = 4 << 10;
@@ -2553,7 +2553,7 @@ void Interpreter::Gfxs2dexBg1cyc(F3DuObjBg* bg) {
         rawTexMetadata.v_pixel_scale = tex->VPixelScale;
         rawTexMetadata.type = tex->Type;
         rawTexMetadata.resource = tex;
-        data = (uintptr_t) reinterpret_cast<char*>(tex->ImageData);
+        data = (uintptr_t)reinterpret_cast<char*>(tex->ImageData);
     }
 
     // TODO: Implement bg scaling correctly
@@ -3343,7 +3343,7 @@ bool gfx_set_timg_handler_rdp(F3DGfx** cmd0) {
                 return false;
             }
 
-            i = (uintptr_t) reinterpret_cast<char*>(tex->ImageData);
+            i = (uintptr_t)reinterpret_cast<char*>(tex->ImageData);
             texFlags = tex->Flags;
             rawTexMetdata.width = tex->Width;
             rawTexMetdata.height = tex->Height;
@@ -4303,7 +4303,7 @@ void Interpreter::Run(Gfx* commands, const std::unordered_map<Mtx*, MtxF>& mtx_r
 
     mRapi->UpdateFramebufferParameters(0, mGfxCurrentWindowDimensions.width, mGfxCurrentWindowDimensions.height, 1,
                                        false, true, true, !mRendersToFb);
-    mRapi->StartFrame();
+    // mRapi->StartFrame();
     mRapi->StartDrawToFramebuffer(mRendersToFb ? mGameFb : 0, (float)mCurDimensions.height / mNativeDimensions.height);
     mRapi->ClearFramebuffer(false, true);
     mRdp->viewport_or_scissor_changed = true;

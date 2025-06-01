@@ -2,45 +2,44 @@
 
 #version 450 core
 
-@if(o_textures[0]) layout(binding = @{get_binding_index("uTex0")}) uniform sampler2D uTex0;
-@if(o_textures[1]) layout(binding = @{get_binding_index("uTex1")}) uniform sampler2D uTex1;
+layout(binding = @{get_binding_index("samplerState", "Sampler", "")}) uniform sampler samplerState;
 
-@if(o_masks[0]) layout(binding = @{get_binding_index("uTexMask0")}) uniform sampler2D uTexMask0;
-@if(o_masks[1]) layout(binding = @{get_binding_index("uTexMask1")}) uniform sampler2D uTexMask1;
+@for(i in 0..2)
+    @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTex@{i};
+    @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMask" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTexMask@{i};
+    @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlend" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTexBlend@{i};
+@end
 
-@if(o_blend[0]) layout(binding = @{get_binding_index("uTexBlend0")}) uniform sampler2D uTexBlend0;
-@if(o_blend[1]) layout(binding = @{get_binding_index("uTexBlend1")}) uniform sampler2D uTexBlend1;
-
-layout(std140, binding = @{get_binding_index("frame_count")}) uniform FrameCount {
+layout(std140, binding = @{get_binding_index("frame_count", "Buffer", "ConstantBuffer")}) uniform FrameCount {
     int frame_count;
 };
-layout(std140, binding = @{get_binding_index("noise_scale")}) uniform NoiseScale {
+layout(std140, binding = @{get_binding_index("noise_scale", "Buffer", "ConstantBuffer")}) uniform NoiseScale {
     float noise_scale;
 };
 
 @for(i in 0..2)
     @if(o_textures[i])
-        layout(location = @{get_input_location("vTexCoord" + to_string(i))}) in vec2 vTexCoord@{i};
+        layout(location = @{get_input_location()}) in vec2 vTexCoord@{i};
         @for(j in 0..2)
             @if(o_clamp[i][j])
                 @if(j == 0)
-                    layout(location = @{get_input_location("vTexClampS" + to_string(i))}) in float vTexClampS@{i};
+                    layout(location = @{get_input_location()}) in float vTexClampS@{i};
                 @else
-                    layout(location = @{get_input_location("vTexClampT" + to_string(i))}) in float vTexClampT@{i};
+                    layout(location = @{get_input_location()}) in float vTexClampT@{i};
                 @end
             @end
         @end
     @end
 @end
 
-@if(o_fog) layout(location = @{get_input_location("vFog")}) in vec4 vFog;
-@if(o_grayscale) layout(location = @{get_input_location("vGrayscaleColor")}) in vec4 vGrayscaleColor;
+@if(o_fog) layout(location = @{get_input_location()}) in vec4 vFog;
+@if(o_grayscale) layout(location = @{get_input_location()}) in vec4 vGrayscaleColor;
 
 @for(i in 0..o_inputs)
     @if(o_alpha)
-        layout(location = @{get_input_location("vInput" + to_string(i+1))}) in vec4 vInput@{i + 1};
+        layout(location = @{get_input_location()}) in vec4 vInput@{i + 1};
     @else
-        layout(location = @{get_input_location("vInput" + to_string(i+1))}) in vec3 vInput@{i + 1};
+        layout(location = @{get_input_location()}) in vec3 vInput@{i + 1};
     @end
 @end
 

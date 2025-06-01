@@ -23,14 +23,6 @@
 LLGL::RenderSystemPtr llgl_renderer;
 LLGL::SwapChain* llgl_swapChain;
 LLGL::CommandBuffer* llgl_cmdBuffer;
-
-struct {
-    int current_tile;
-    uint32_t current_texture_ids[SHADER_MAX_TEXTURES];
-    std::vector<LLGL::Texture*> textures;
-    bool srgb_mode = false;
-    Fast::FilteringMode current_filter_mode = Fast::FILTER_NONE;
-} llgl_state;
 namespace Fast {
 
 GfxRenderingAPILLGL::GfxRenderingAPILLGL(GfxWindowBackend* backend) {
@@ -55,7 +47,7 @@ void Fast::GfxRenderingAPILLGL::UnloadShader(struct ShaderProgram* old_prg) {
 }
 
 void Fast::GfxRenderingAPILLGL::LoadShader(struct ShaderProgram* new_prg) {
-    // llgl_cmdBuffer->SetPipelineState(new_prg->pipeline);
+    mCurrentShaderProgram = (ShaderProgramLLGL*)new_prg;
 }
 
 static void llgl_append_str(char* buf, size_t* len, const char* str) {
@@ -149,16 +141,17 @@ static const char* llgl_shader_item_to_str(uint32_t item, bool with_alpha, bool 
 }
 
 bool llgl_get_bool(prism::ContextTypes* value) {
-     if (std::holds_alternative<int>(*value)) {
+    if (std::holds_alternative<int>(*value)) {
         return std::get<int>(*value) == 1;
     }
     return false;
 }
 
-prism::ContextTypes* llgl_append_formula(prism::ContextItems* _, prism::ContextTypes* a_arg, prism::ContextTypes* a_single,
-                                         prism::ContextTypes* a_mult, prism::ContextTypes* a_mix,
-                                         prism::ContextTypes* a_with_alpha, prism::ContextTypes* a_only_alpha,
-                                         prism::ContextTypes* a_alpha, prism::ContextTypes* a_first_cycle) {
+prism::ContextTypes* llgl_append_formula(prism::ContextItems* _, prism::ContextTypes* a_arg,
+                                         prism::ContextTypes* a_single, prism::ContextTypes* a_mult,
+                                         prism::ContextTypes* a_mix, prism::ContextTypes* a_with_alpha,
+                                         prism::ContextTypes* a_only_alpha, prism::ContextTypes* a_alpha,
+                                         prism::ContextTypes* a_first_cycle) {
     auto c = std::get<prism::MTDArray<int>>(*a_arg);
     bool do_single = llgl_get_bool(a_single);
     bool do_multiply = llgl_get_bool(a_mult);
@@ -224,40 +217,97 @@ prism::ContextTypes* prism_context_to_string(prism::ContextItems* items, prism::
     return new prism::ContextTypes{ prism_to_string(value) };
 }
 
-prism::ContextTypes* get_input_location(prism::ContextItems* items, prism::ContextTypes* name) {
+LLGL::Format llgl_get_format(const std::string& format) {
+    if (format == "RGBA32Float") {
+        return LLGL::Format::RGBA32Float;
+    } else if (format == "RGB32Float") {
+        return LLGL::Format::RGB32Float;
+    } else if (format == "RG32Float") {
+        return LLGL::Format::RG32Float;
+    } else if (format == "R32Float") {
+        return LLGL::Format::R32Float;
+    }
+    // Add more formats as needed
+    return LLGL::Format::Undefined;
+}
+
+prism::ContextTypes* get_vs_input_location(prism::ContextItems* items, prism::ContextTypes* name,
+                                           prism::ContextTypes* vtx_format) {
+    auto format = std::get<std::string>(*vtx_format);
     auto name_str = std::get<std::string>(*name);
 
     int& input_index = std::get<int>(items->at("input_index"));
     auto input = input_index;
     input_index++;
 
-    items->emplace(name_str, prism::ContextTypes{ input });
+    LLGL::VertexFormat* vertex_format =
+        static_cast<LLGL::VertexFormat*>((void*)std::get<prism::Opaque>(items->at("vertex_format")).ptr);
+
+    LLGL::StringLiteral name_literal{ name_str.c_str(), true };
+
+    vertex_format->AppendAttribute({ name_literal, llgl_get_format(format) });
+
     return new prism::ContextTypes{ input };
 }
 
-prism::ContextTypes* get_output_location(prism::ContextItems* items, prism::ContextTypes* name) {
-    auto name_str = std::get<std::string>(*name);
+prism::ContextTypes* get_input_location(prism::ContextItems* items) {
+    int& input_index = std::get<int>(items->at("input_index"));
+    auto input = input_index;
+    input_index++;
+    return new prism::ContextTypes{ input };
+}
 
+prism::ContextTypes* get_output_location(prism::ContextItems* items) {
     int& output_index = std::get<int>(items->at("output_index"));
     auto output = output_index;
     output_index++;
-    
-    items->emplace(name_str, prism::ContextTypes{ output });
     return new prism::ContextTypes{ output };
 }
 
-prism::ContextTypes* get_binding_index(prism::ContextItems* items, prism::ContextTypes* name) {
+LLGL::ResourceType llgl_get_resource_type(const std::string& type) {
+    if (type == "Texture") {
+        return LLGL::ResourceType::Texture;
+    } else if (type == "Buffer") {
+        return LLGL::ResourceType::Buffer;
+    } else if (type == "Sampler") {
+        return LLGL::ResourceType::Sampler;
+    }
+    // Add more resource types as needed
+    return LLGL::ResourceType::Undefined;
+}
+
+int llgl_get_binding_type(const std::string& type) {
+    if (type == "ConstantBuffer") {
+        return LLGL::BindFlags::ConstantBuffer;
+    } else if (type == "Sampled") {
+        return LLGL::BindFlags::Sampled;
+    }
+    // Add more binding types as needed
+    return 0;
+}
+
+prism::ContextTypes* get_binding_index(prism::ContextItems* items, prism::ContextTypes* name,
+                                       prism::ContextTypes* resource_type, prism::ContextTypes* binding_type) {
     auto name_str = std::get<std::string>(*name);
 
     int& binding_index = std::get<int>(items->at("binding_index"));
     auto bind = binding_index;
     binding_index++;
 
-    items->emplace(name_str, prism::ContextTypes{ bind });
+    long stage_flags = std::get<int>(items->at("stage_flags"));
+
+    LLGL::StringLiteral name_literal{ name_str.c_str(), true };
+
+    LLGL::PipelineLayoutDescriptor* layoutDesc =
+        static_cast<LLGL::PipelineLayoutDescriptor*>((void*)std::get<prism::Opaque>(items->at("layout_desc")).ptr);
+    layoutDesc->bindings.push_back(LLGL::BindingDescriptor{
+        name_literal, llgl_get_resource_type(std::get<std::string>(*resource_type)),
+        (long)llgl_get_binding_type(std::get<std::string>(*binding_type)), stage_flags, bind });
     return new prism::ContextTypes{ bind };
 }
 
-static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
+std::string GfxRenderingAPILLGL::llgl_build_fs_shader(const CCFeatures& cc_features,
+                                                      LLGL::PipelineLayoutDescriptor& layoutDesc) {
     prism::Processor processor;
     prism::ContextItems context = {
         { "o_c", M_ARRAY(cc_features.c, int, 2, 2, 4) },
@@ -278,11 +328,11 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
         { "o_do_single", M_ARRAY(cc_features.do_single, bool, 2, 2) },
         { "o_do_multiply", M_ARRAY(cc_features.do_multiply, bool, 2, 2) },
         { "o_color_alpha_same", M_ARRAY(cc_features.color_alpha_same, bool, 2) },
-        { "o_three_point_filtering", llgl_state.current_filter_mode == FILTER_THREE_POINT },
+        { "o_three_point_filtering", current_filter_mode == FILTER_THREE_POINT },
         { "FILTER_THREE_POINT", Fast::FILTER_THREE_POINT },
         { "FILTER_LINEAR", Fast::FILTER_LINEAR },
         { "FILTER_NONE", Fast::FILTER_NONE },
-        { "srgb_mode", llgl_state.srgb_mode },
+        { "srgb_mode", srgb_mode },
         { "SHADER_0", SHADER_0 },
         { "SHADER_INPUT_1", SHADER_INPUT_1 },
         { "SHADER_INPUT_2", SHADER_INPUT_2 },
@@ -304,8 +354,9 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
         { "to_string", (InvokeFunc)prism_context_to_string },
         // local variables
         { "input_index", 0 },
-        { "binding_index", 1},
-        { "output_index", 0 },
+        { "binding_index", 1 },
+        { "layout_desc", (prism::Opaque){ (uintptr_t)&layoutDesc } },
+        { "stage_flags", LLGL::StageFlags::FragmentStage },
     };
     processor.populate(context);
     auto init = std::make_shared<Ship::ResourceInitData>();
@@ -324,9 +375,14 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    // for (const auto& item : processor.getTypes()) {
-    //     SPDLOG_INFO("{}: {}", item.first, prism_to_string((prism::ContextTypes*) &item.second));
-    // }
+    for (const auto& bind : layoutDesc.bindings) {
+        if (bind.stageFlags & LLGL::StageFlags::FragmentStage) {
+            if (bind.type == LLGL::ResourceType::Texture) {
+                layoutDesc.combinedTextureSamplers.push_back(
+                    LLGL::CombinedTextureSamplerDescriptor{ bind.name, bind.name, "samplerState", bind.slot });
+            }
+        }
+    }
     // SPDLOG_INFO("=========== FRAGMENT SHADER ============");
     // // print line per line with number
     // size_t line_num = 0;
@@ -338,22 +394,29 @@ static std::string llgl_build_fs_shader(const CCFeatures& cc_features) {
     return result;
 }
 
-static std::string llgl_build_vs_shader(const CCFeatures& cc_features) {
+std::string GfxRenderingAPILLGL::llgl_build_vs_shader(const CCFeatures& cc_features,
+                                                      LLGL::PipelineLayoutDescriptor& layoutDesc,
+                                                      LLGL::VertexFormat& vertexFormat) {
     prism::Processor processor;
 
-    prism::ContextItems context = { { "o_textures", M_ARRAY(cc_features.usedTextures, bool, 2) },
-                                    { "o_clamp", M_ARRAY(cc_features.clamp, bool, 2, 2) },
-                                    { "o_fog", cc_features.opt_fog },
-                                    { "o_grayscale", cc_features.opt_grayscale },
-                                    { "o_alpha", cc_features.opt_alpha },
-                                    { "o_inputs", cc_features.numInputs },
-                                    { "get_input_location", (InvokeFunc)get_input_location },
-                                    { "get_output_location", (InvokeFunc)get_output_location },
-                                { "to_string", (InvokeFunc)prism_context_to_string },
+    prism::ContextItems context = {
+        { "o_textures", M_ARRAY(cc_features.usedTextures, bool, 2) },
+        { "o_clamp", M_ARRAY(cc_features.clamp, bool, 2, 2) },
+        { "o_fog", cc_features.opt_fog },
+        { "o_grayscale", cc_features.opt_grayscale },
+        { "o_alpha", cc_features.opt_alpha },
+        { "o_inputs", cc_features.numInputs },
+        { "get_vs_input_location", (InvokeFunc)get_vs_input_location },
+        { "get_output_location", (InvokeFunc)get_output_location },
+        { "to_string", (InvokeFunc)prism_context_to_string },
         // local variables
         { "input_index", 0 },
-        { "binding_index", 1},
-        { "output_index", 0 }, };
+        { "binding_index", 1 },
+        { "output_index", 0 },
+        { "vertex_format", (prism::Opaque){ (uintptr_t)&vertexFormat } },
+        { "layout_desc", (prism::Opaque){ (uintptr_t)&layoutDesc } },
+        { "stage_flags", LLGL::StageFlags::VertexStage },
+    };
     processor.populate(context);
 
     auto init = std::make_shared<Ship::ResourceInitData>();
@@ -372,17 +435,14 @@ static std::string llgl_build_vs_shader(const CCFeatures& cc_features) {
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    // for (const auto& item : processor.getTypes()) {
-    //     SPDLOG_INFO("{}: {}", item.first, prism_to_string((prism::ContextTypes*) &item.second));
-    // }
-    // SPDLOG_INFO("=========== VERTEX SHADER ============");
-    // // print line per line with number
-    // size_t line_num = 0;
-    // for (const auto& line : StringHelper::Split(result, "\n")) {
-    //     printf("%zu: %s\n", line_num, line.c_str());
-    //     line_num++;
-    // }
-    // SPDLOG_INFO("========================================");
+    SPDLOG_INFO("=========== VERTEX SHADER ============");
+    // print line per line with number
+    size_t line_num = 0;
+    for (const auto& line : StringHelper::Split(result, "\n")) {
+        printf("%zu: %s\n", line_num, line.c_str());
+        line_num++;
+    }
+    SPDLOG_INFO("========================================");
     return result;
 }
 
@@ -413,7 +473,7 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
         }
         SPDLOG_ERROR("vertShader: {}", report->GetText());
     }
-    
+
     if (const LLGL::Report* report = fragShader->GetReport()) {
         if (std::holds_alternative<std::string>(fragShaderSourceC)) {
             int line_num = 0;
@@ -456,61 +516,52 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
     gfx_cc_get_features(shader_id0, shader_id1, &cc_features);
 
     LLGL::VertexFormat vertexFormat;
+    LLGL::PipelineLayoutDescriptor layoutDesc;
 
-    vertexFormat.AppendAttribute({ "aVtxPos", LLGL::Format::RGBA32Float });
+    const auto vs_buf = llgl_build_vs_shader(cc_features, layoutDesc, vertexFormat);
+    const auto fs_buf = llgl_build_fs_shader(cc_features, layoutDesc);
 
-    for (int i = 0; i < 2; i++) {
-        if (cc_features.usedTextures[i]) {
-            vertexFormat.AppendAttribute({ "aTexCoord" + std::to_string(i), LLGL::Format::RG32Float });
-            for (int j = 0; j < 2; j++) {
-                if (cc_features.clamp[i][j]) {
-                    if (j == 0) {
-                        vertexFormat.AppendAttribute({ "aTexClampS" + std::to_string(i), LLGL::Format::R32Float });
-                    } else {
-                        vertexFormat.AppendAttribute({ "aTexClampT" + std::to_string(i), LLGL::Format::R32Float });
-                    }
-                }
-            }
-        }
-    }
+    LLGL::PipelineLayout* pipeline_layout = llgl_renderer->CreatePipelineLayout(layoutDesc);
 
-    if (cc_features.opt_fog) {
-        vertexFormat.AppendAttribute({ "aFogCoord", LLGL::Format::RGBA32Float });
-    }
-    if (cc_features.opt_grayscale) {
-        vertexFormat.AppendAttribute({ "aGrayscaleColor", LLGL::Format::RGBA32Float });
-    }
+    ShaderProgramLLGL* prg = &mShaderProgramPool[std::make_pair(shader_id0, shader_id1)];
 
-    for (int i = 0; i < cc_features.numInputs; i++) {
-        if (cc_features.opt_alpha) {
-            vertexFormat.AppendAttribute({ "aInput" + std::to_string(i + 1), LLGL::Format::RGBA32Float });
-        } else {
-            vertexFormat.AppendAttribute({ "aInput" + std::to_string(i + 1), LLGL::Format::RGB32Float });
-        }
-    }
-
-    const auto vs_buf = llgl_build_vs_shader(cc_features);
-    const auto fs_buf = llgl_build_fs_shader(cc_features);
-    auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf);
-    return nullptr;
+    auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf, pipeline_layout);
+    prg->numInputs = cc_features.numInputs;
+    prg->usedTextures[0] = cc_features.usedTextures[0];
+    prg->usedTextures[1] = cc_features.usedTextures[1];
+    prg->pipeline = pipeline;
+    prg->vertexFormat = vertexFormat;
+    mCurrentShaderProgram = prg;
+    return (struct ShaderProgram*)prg;
 }
 
 Fast::ShaderProgram* Fast::GfxRenderingAPILLGL::LookupShader(uint64_t shader_id0, uint32_t shader_id1) {
-    return nullptr;
+    auto it = mShaderProgramPool.find(std::make_pair(shader_id0, shader_id1));
+    return it == mShaderProgramPool.end() ? nullptr : (struct ShaderProgram*)&it->second;
 }
 
 void Fast::GfxRenderingAPILLGL::ShaderGetInfo(struct ShaderProgram* prg, uint8_t* num_inputs, bool used_textures[2]) {
+    auto p = (ShaderProgramLLGL*)(prg);
+    if (p == nullptr) {
+        *num_inputs = 0;
+        used_textures[0] = false;
+        used_textures[1] = false;
+        return;
+    }
+    *num_inputs = p->numInputs;
+    used_textures[0] = p->usedTextures[0];
+    used_textures[1] = p->usedTextures[1];
 }
 
 uint32_t Fast::GfxRenderingAPILLGL::NewTexture(void) {
-    llgl_state.textures.resize(llgl_state.textures.size() + 1);
-    return (uint32_t)(llgl_state.textures.size() - 1);
+    textures.resize(textures.size() + 1);
+    return (uint32_t)(textures.size() - 1);
 }
 
 void Fast::GfxRenderingAPILLGL::SelectTexture(int tile, uint32_t texture_id) {
     // TODO: not finish
-    llgl_state.current_tile = tile;
-    llgl_state.current_texture_ids[tile] = texture_id;
+    current_tile = tile;
+    current_texture_ids[current_tile] = texture_id;
 }
 
 void Fast::GfxRenderingAPILLGL::UploadTexture(const uint8_t* rgba32_buf, uint32_t width, uint32_t height) {
@@ -523,8 +574,7 @@ void Fast::GfxRenderingAPILLGL::UploadTexture(const uint8_t* rgba32_buf, uint32_
     texDesc.type = LLGL::TextureType::Texture2D;
     texDesc.format = LLGL::Format::RGBA8UNorm;
     texDesc.extent = { width, height, 1 };
-    llgl_state.textures[llgl_state.current_texture_ids[llgl_state.current_tile]] =
-        llgl_renderer->CreateTexture(texDesc, &imageView);
+    textures[current_texture_ids[current_tile]] = llgl_renderer->CreateTexture(texDesc, &imageView);
 }
 
 void Fast::GfxRenderingAPILLGL::SetSamplerParameters(int sampler, bool linear_filter, uint32_t cms, uint32_t cmt) {
@@ -548,12 +598,21 @@ void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
 }
 
 void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) {
-    //llgl_cmdBuffer->SetVertexBuffer(buf_vbo)
+    LLGL::BufferDescriptor vboDesc;
+    {
+        vboDesc.bindFlags = LLGL::BindFlags::VertexBuffer;
+        vboDesc.size = buf_vbo_len * sizeof(float);
+        vboDesc.vertexAttribs = mCurrentShaderProgram->vertexFormat.attributes;
+    }
+
+    LLGL::Buffer* vertexBuffer = llgl_renderer->CreateBuffer(vboDesc, buf_vbo);
+    llgl_cmdBuffer->SetPipelineState(*mCurrentShaderProgram->pipeline);
+    llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
+    llgl_cmdBuffer->Draw(3, 0);
 }
 
 void Fast::GfxRenderingAPILLGL::Init() {
     LLGL::Report report;
-
 
     llgl_renderer = LLGL::RenderSystem::Load(mWindowBackend->mInitData.LLGL.desc, &report);
 
@@ -600,22 +659,22 @@ int Fast::GfxRenderingAPILLGL::CreateFramebuffer(void) {
     return 0;
 }
 
-void Fast::GfxRenderingAPILLGL::UpdateFramebufferParameters(int fb_id, uint32_t width, uint32_t height, uint32_t msaa_level,
-                                            bool opengl_invert_y, bool render_target, bool has_depth_buffer,
-                                            bool can_extract_depth) {
+void Fast::GfxRenderingAPILLGL::UpdateFramebufferParameters(int fb_id, uint32_t width, uint32_t height,
+                                                            uint32_t msaa_level, bool opengl_invert_y,
+                                                            bool render_target, bool has_depth_buffer,
+                                                            bool can_extract_depth) {
 }
 
 void Fast::GfxRenderingAPILLGL::StartDrawToFramebuffer(int fb_id, float noise_scale) {
 }
 
-void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, int srcX0, int srcY0, int srcX1, int srcY1, int dstX0,
-                               int dstY0, int dstX1, int dstY1) {
+void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, int srcX0, int srcY0, int srcX1,
+                                                int srcY1, int dstX0, int dstY0, int dstX1, int dstY1) {
 }
 
 void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {
     int flags = 0 | (color ? LLGL::ClearFlags::Color : 0) | (depth ? LLGL::ClearFlags::Depth : 0);
-    llgl_cmdBuffer->Clear(flags,
-                          LLGL::ClearValue{ 0.0f, 0.0f, 0.0f, 1.0f });
+    llgl_cmdBuffer->Clear(flags, LLGL::ClearValue{ 0.0f, 0.0f, 0.0f, 1.0f });
 }
 
 void Fast::GfxRenderingAPILLGL::ReadFramebufferToCPU(int fb_id, uint32_t width, uint32_t height, uint16_t* rgba16_buf) {
@@ -637,61 +696,27 @@ void Fast::GfxRenderingAPILLGL::SelectTextureFb(int fb_id) {
 }
 
 void Fast::GfxRenderingAPILLGL::DeleteTexture(uint32_t texture_id) {
+    if (texture_id < textures.size()) {
+        llgl_renderer->Release(*textures[texture_id]);
+        textures[texture_id] = nullptr;
+    } else {
+        SPDLOG_ERROR("Tried to delete texture with id {}, but it does not exist.", texture_id);
+    }
 }
 
 void Fast::GfxRenderingAPILLGL::SetTextureFilter(Fast::FilteringMode mode) {
-    llgl_state.current_filter_mode = mode;
+    current_filter_mode = mode;
 }
 
 Fast::FilteringMode Fast::GfxRenderingAPILLGL::GetTextureFilter(void) {
-    return llgl_state.current_filter_mode;
+    return current_filter_mode;
 }
 
 void Fast::GfxRenderingAPILLGL::SetSrgbMode(void) {
-    llgl_state.srgb_mode = true;
+    srgb_mode = true;
 }
 
 ImTextureID Fast::GfxRenderingAPILLGL::GetTextureById(int id) {
-    return nullptr; //TODO fix me
+    return nullptr; // TODO fix me
 }
-
-}
-#if 0
-struct GfxRenderingAPI gfx_llgl_api = { GetName,
-                                        GetMaxTextureSize,
-                                        GetClipParameters,
-                                        UnloadShader,
-                                        LoadShader,
-                                        CreateAndLoadNewShader,
-                                        LookupShader,
-                                        ShaderGetInfo,
-                                        NewTexture,
-                                        SelectTexture,
-                                        UploadTexture,
-                                        SetSamplerParameters,
-                                        SetDepthTestAndMask,
-                                        SetZmodeDecal,
-                                        SetViewport,
-                                        SetScissor,
-                                        SetUsaAlpha,
-                                        DrawTriangles,
-                                        Init,
-                                        OnResize,
-                                        StartFrame,
-                                        EndFrame,
-                                        FinishRender,
-                                        CreateFramebuffer,
-                                        UpdateFramebufferParameters,
-                                        StartDrawToFramebuffer,
-                                        CopyFramebuffer,
-                                        ClearFramebuffer,
-                                        ReadFramebufferToCPU,
-                                        ResolveMSAAColorBuffer,
-                                        GetPixelDepth,
-                                        GetFramebufferTextureId,
-                                        SelectTextureFb,
-                                        DeleteTexture,
-                                        SetTextureFilter,
-                                        GetTextureFilter,
-                                        SetSrgbMode };
-#endif
+} // namespace Fast

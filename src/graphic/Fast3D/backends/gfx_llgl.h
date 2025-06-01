@@ -2,17 +2,26 @@
 #define GFX_LLGL_H
 
 #include "gfx_rendering_api.h"
+#include "graphic/Fast3D/interpreter.h"
 #include <LLGL/LLGL.h>
+#include "LLGL/Utils/VertexFormat.h"
 
 extern LLGL::RenderSystemPtr llgl_renderer;
 extern LLGL::SwapChain* llgl_swapChain;
 extern LLGL::CommandBuffer* llgl_cmdBuffer;
 
 namespace Fast {
+
+struct ShaderProgramLLGL {
+    int numInputs;
+    bool usedTextures[2];
+    LLGL::PipelineState* pipeline;
+    LLGL::VertexFormat vertexFormat;
+};
 class GfxRenderingAPILLGL : public GfxRenderingAPI {
-public:
-  GfxRenderingAPILLGL(GfxWindowBackend* backend);
-      ~GfxRenderingAPILLGL() override = default;
+  public:
+    GfxRenderingAPILLGL(GfxWindowBackend* backend);
+    ~GfxRenderingAPILLGL() override = default;
     const char* GetName() override;
     int GetMaxTextureSize() override;
     GfxClipParameters GetClipParameters() override;
@@ -55,7 +64,19 @@ public:
     FilteringMode GetTextureFilter() override;
     void SetSrgbMode() override;
     ImTextureID GetTextureById(int id) override;
+
+  private:
+    int current_tile;
+    uint32_t current_texture_ids[6];
+    std::vector<LLGL::Texture*> textures;
+    bool srgb_mode = false;
+    Fast::FilteringMode current_filter_mode = Fast::FILTER_NONE;
+    std::string llgl_build_fs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc);
+    std::string llgl_build_vs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc,
+                                     LLGL::VertexFormat& vertexFormat);
+    std::map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL> mShaderProgramPool;
+    struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;
 };
-}
+} // namespace Fast
 
 #endif
