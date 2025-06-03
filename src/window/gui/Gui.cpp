@@ -2,7 +2,6 @@
 
 #include "Gui.h"
 
-
 #include "ImGui_LLGL.h"
 #include "graphic/Fast3D/backends/gfx_llgl.h"
 
@@ -153,11 +152,9 @@ void Gui::Init() {
         std::make_shared<ResourceFactoryBinaryGuiTextureV0>(), RESOURCE_FORMAT_BINARY, "GuiTexture",
         static_cast<uint32_t>(RESOURCE_TYPE_GUI_TEXTURE), 0);
 
-
     mInterpreter = dynamic_pointer_cast<Fast::Fast3dWindow>(Context::GetInstance()->GetWindow())->GetInterpreterWeak();
     ImGuiWMInit();
     ImGuiBackendInit();
-
 }
 
 void Gui::ImGuiWMInit() {
@@ -182,7 +179,7 @@ void Gui::ImGuiWMInit() {
 #endif
         case WindowBackend::FAST3D_SDL_LLGL:
             InitImGui(*mImpl->LLGL.Window, llgl_renderer, llgl_swapChain, llgl_cmdBuffer);
-        break;
+            break;
         default:
             break;
     }
@@ -339,7 +336,7 @@ void Gui::ImGuiBackendNewFrame() {
 #endif
         case WindowBackend::FAST3D_SDL_LLGL:
             NewFrameImGui(llgl_renderer, llgl_cmdBuffer);
-        break;
+            break;
         default:
             break;
     }
@@ -507,7 +504,7 @@ void Gui::DrawMenu() {
         ImGui::DockBuilderFinish(dockId);
     }
 
-    ImGui::DockSpace(dockId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None | ImGuiDockNodeFlags_NoDockingInCentralNode);
+    ImGui::DockSpace(dockId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None | ImGuiDockNodeFlags_NoDockingOverCentralNode);
 
     if (ImGui::IsKeyPressed(TOGGLE_BTN, false) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
         (ImGui::IsKeyPressed(TOGGLE_PAD_BTN, false) && CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0))) {
@@ -578,8 +575,6 @@ void Gui::StartFrame() {
     HandleMouseCapture();
 }
 
-
-
 void Gui::EndFrame() {
     // Draw the ImGui "viewports" which are the floating windows.
     ImGui::Render();
@@ -602,8 +597,10 @@ void Gui::CalculateGameViewport() {
     mainPos.x -= mTemporaryWindowPos.x;
     mainPos.y -= mTemporaryWindowPos.y;
     ImVec2 size = ImGui::GetContentRegionAvail();
+    auto previousDimensions = mInterpreter.lock()->mCurDimensions;
     mInterpreter.lock()->mCurDimensions.width = (uint32_t)(size.x * mInterpreter.lock()->mCurDimensions.internal_mul);
     mInterpreter.lock()->mCurDimensions.height = (uint32_t)(size.y * mInterpreter.lock()->mCurDimensions.internal_mul);
+    auto afterDimensions = mInterpreter.lock()->mCurDimensions;
     mInterpreter.lock()->mGameWindowViewport.x = (int16_t)mainPos.x;
     mInterpreter.lock()->mGameWindowViewport.y = (int16_t)mainPos.y;
     mInterpreter.lock()->mGameWindowViewport.width = (int16_t)size.x;
@@ -740,16 +737,15 @@ void Gui::CheckSaveCvars() {
 void Gui::StartDraw() {
     // Initialize the frame.
     StartFrame();
-
 }
 
 void Gui::EndDraw() {
     // Draw the gui menus
     // ImGui::NewFrame();
     ImGuiNewFrame();
+    DrawMenu();
     // Calculate the available space the game can render to
     CalculateGameViewport();
-    DrawMenu();
     // Draw the game framebuffer into ImGui
     DrawGame();
     // Draw the ImGui floating windows.

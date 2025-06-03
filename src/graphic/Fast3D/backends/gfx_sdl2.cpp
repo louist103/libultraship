@@ -335,18 +335,17 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
     char title[512];
-    int len = snprintf(title, 512, "%s (%s)", "MM","LLGL");
+    int len = snprintf(title, 512, "%s (%s)", "MM", "LLGL");
 
     bool use_llgl = true;
     if (use_llgl) {
         mInitData.LLGL = { std::make_shared<SDLSurface>(
-                                 LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
-                                 LLGL::RendererID::Vulkan, mInitData.LLGL.desc),
-                             mInitData.LLGL.desc };
+                               LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
+                               LLGL::RendererID::Vulkan, mInitData.LLGL.desc),
+                           mInitData.LLGL.desc };
         mWnd = mInitData.LLGL.Window->wnd;
         return;
     }
-
 
 #if defined(__APPLE__)
     bool use_opengl = strcmp(gfxApiName, "OpenGL") == 0;
@@ -598,13 +597,13 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
         case SDL_WINDOWEVENT:
             switch (event.window.event) {
                 case SDL_WINDOWEVENT_SIZE_CHANGED:
-                    case SDL_WINDOWEVENT_RESIZED:
+                case SDL_WINDOWEVENT_RESIZED:
 #ifdef __APPLE__
                     SDL_GetWindowSize(mWnd, &mWindowWidth, &mWindowHeight);
 #else
                     SDL_GL_GetDrawableSize(mWnd, &mWindowWidth, &mWindowHeight);
 #endif
-                llgl_swapChain->ResizeBuffers({ (uint32_t)mWindowWidth, (uint32_t)mWindowWidth });
+                    llgl_swapChain->ResizeBuffers({ (uint32_t)mWindowWidth, (uint32_t)mWindowWidth });
                     break;
                 case SDL_WINDOWEVENT_CLOSE:
                     if (event.window.windowID == SDL_GetWindowID(mWnd)) {

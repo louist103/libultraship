@@ -69,6 +69,7 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
     int current_tile;
     uint32_t current_texture_ids[6];
     std::vector<LLGL::Texture*> textures;
+    std::vector<std::pair<LLGL::RenderTarget*, int>> framebuffers;
     bool srgb_mode = false;
     Fast::FilteringMode current_filter_mode = Fast::FILTER_NONE;
     std::string llgl_build_fs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc);
@@ -76,6 +77,7 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
                                      LLGL::VertexFormat& vertexFormat);
     std::map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL> mShaderProgramPool;
     struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;
+    std::vector<LLGL::Buffer*> mVertexBuffers;
 };
 } // namespace Fast
 

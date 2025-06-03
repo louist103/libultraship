@@ -13,6 +13,11 @@
 #include "gfx_rendering_api.h"
 
 #include <LLGL/Backend/OpenGL/NativeHandle.h>
+#ifdef LLGL_BUILD_RENDERER_VULKAN
+#include <LLGL/Backend/Vulkan/NativeHandle.h>
+#include <imgui_impl_vulkan.h>
+#include <LLGL/../../sources/Renderer/Vulkan/Texture/VKTexture.h>
+#endif
 #include "../../../resource/type/Shader.h"
 #include <Context.h>
 #include "../shader_translation.h"
@@ -495,6 +500,12 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
         pipelineDesc.fragmentShader = fragShader;
         pipelineDesc.renderPass = llgl_swapChain->GetRenderPass();
         pipelineDesc.pipelineLayout = pipelineLayout;
+        pipelineDesc.depth = LLGL::DepthDescriptor{
+            .testEnabled = true,
+            .writeEnabled = true,
+            .compareOp = LLGL::CompareOp::Less,
+        };
+        pipelineDesc.rasterizer = LLGL::RasterizerDescriptor{ .cullMode = LLGL::CullMode::Front };
     }
 
     // Create graphics PSO
@@ -606,9 +617,10 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
     }
 
     LLGL::Buffer* vertexBuffer = llgl_renderer->CreateBuffer(vboDesc, buf_vbo);
-    llgl_cmdBuffer->SetPipelineState(*mCurrentShaderProgram->pipeline);
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
-    llgl_cmdBuffer->Draw(3, 0);
+    llgl_cmdBuffer->SetPipelineState(*mCurrentShaderProgram->pipeline);
+    llgl_cmdBuffer->Draw(3 * buf_vbo_num_tris, 0);
+    mVertexBuffers.push_back(vertexBuffer);
 }
 
 void Fast::GfxRenderingAPILLGL::Init() {
@@ -633,6 +645,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
     llgl_swapChain = llgl_renderer->CreateSwapChain(swapChainDesc, mWindowBackend->mInitData.LLGL.Window);
 
     llgl_cmdBuffer = llgl_renderer->CreateCommandBuffer(LLGL::CommandBufferFlags::ImmediateSubmit);
+    framebuffers.push_back({ llgl_swapChain, 0 });
 }
 
 void Fast::GfxRenderingAPILLGL::OnResize(void) {
@@ -656,20 +669,97 @@ void Fast::GfxRenderingAPILLGL::FinishRender(void) {
 }
 
 int Fast::GfxRenderingAPILLGL::CreateFramebuffer(void) {
-    return 0;
+    textures.resize(textures.size() + 1);
+    textures[textures.size() - 1] = nullptr;
+    int texture_id = (int)(textures.size() - 1);
+    int fb_id = (int)framebuffers.size();
+    framebuffers.resize(framebuffers.size() + 1);
+    framebuffers[fb_id] = { nullptr, texture_id };
+    return fb_id;
 }
 
 void Fast::GfxRenderingAPILLGL::UpdateFramebufferParameters(int fb_id, uint32_t width, uint32_t height,
                                                             uint32_t msaa_level, bool opengl_invert_y,
                                                             bool render_target, bool has_depth_buffer,
                                                             bool can_extract_depth) {
+    msaa_level = 1;
+    if (fb_id == 0) {
+        llgl_swapChain->ResizeBuffers({ width, height });
+        return;
+    }
+    if (fb_id < 0 || fb_id >= (int)framebuffers.size()) {
+        SPDLOG_ERROR("Invalid framebuffer ID: {}", fb_id);
+        return;
+    }
+    if (framebuffers[fb_id].first != nullptr) {
+        llgl_renderer->Release(*framebuffers[fb_id].first);
+        framebuffers[fb_id].first = nullptr;
+    }
+    if (textures[framebuffers[fb_id].second] != nullptr) {
+        llgl_renderer->Release(*textures[framebuffers[fb_id].second]);
+        textures[framebuffers[fb_id].second] = nullptr;
+    }
+    LLGL::TextureDescriptor texDesc;
+    {
+        texDesc.type = LLGL::TextureType::Texture2D;
+        texDesc.format = LLGL::Format::RGBA8UNorm;
+        texDesc.extent = { width, height, 1 };
+        texDesc.samples = msaa_level;
+    }
+
+    LLGL::Texture* texture = llgl_renderer->CreateTexture(texDesc);
+
+    textures[framebuffers[fb_id].second] = texture;
+
+    LLGL::RenderTargetDescriptor renderTargetDesc;
+    {
+        renderTargetDesc.resolution = { width, height };
+        renderTargetDesc.samples = msaa_level;
+        renderTargetDesc.colorAttachments[0] = texture;
+        if (has_depth_buffer) {
+            LLGL::TextureDescriptor depthTexDesc;
+            {
+                depthTexDesc.bindFlags = LLGL::BindFlags::DepthStencilAttachment;
+                depthTexDesc.format = LLGL::Format::D32Float;
+                depthTexDesc.extent.width = width;
+                depthTexDesc.extent.height = height;
+                depthTexDesc.mipLevels = 1;
+                depthTexDesc.samples = msaa_level;
+                depthTexDesc.type =
+                    (depthTexDesc.samples > 1 ? LLGL::TextureType::Texture2DMS : LLGL::TextureType::Texture2D);
+                depthTexDesc.miscFlags = LLGL::MiscFlags::NoInitialData;
+            }
+            LLGL::Texture* depthTexture = llgl_renderer->CreateTexture(depthTexDesc);
+            renderTargetDesc.depthStencilAttachment = depthTexture;
+        }
+    }
+
+    LLGL::RenderTarget* renderTarget = llgl_renderer->CreateRenderTarget(renderTargetDesc);
+    framebuffers[fb_id].first = renderTarget;
 }
 
 void Fast::GfxRenderingAPILLGL::StartDrawToFramebuffer(int fb_id, float noise_scale) {
+    if (fb_id < 0 || fb_id >= (int)framebuffers.size() || framebuffers[fb_id].first == nullptr) {
+        SPDLOG_ERROR("Invalid framebuffer ID: {}", fb_id);
+        return;
+    }
+    llgl_cmdBuffer->EndRenderPass();
+    llgl_cmdBuffer->BeginRenderPass(*framebuffers[fb_id].first);
+    // llgl_cmdBuffer->SetViewport(framebuffers[fb_id].first->GetResolution());
 }
 
 void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, int srcX0, int srcY0, int srcX1,
                                                 int srcY1, int dstX0, int dstY0, int dstX1, int dstY1) {
+    if (fb_dst_id < 0 || fb_dst_id >= (int)framebuffers.size() || framebuffers[fb_dst_id].first == nullptr ||
+        fb_src_id < 0 || fb_src_id >= (int)framebuffers.size() || framebuffers[fb_src_id].first == nullptr) {
+        SPDLOG_ERROR("Invalid framebuffer ID: {} or {}", fb_dst_id, fb_src_id);
+        return;
+    }
+    // probably wrong
+    const LLGL::TextureLocation location({ dstX0, dstY0, 0 });
+    llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second], location,
+                                *textures[framebuffers[fb_src_id].second], location,
+                                { dstX1 - dstX0, dstY1 - dstY0, 0 });
 }
 
 void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {
@@ -678,6 +768,9 @@ void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {
 }
 
 void Fast::GfxRenderingAPILLGL::ReadFramebufferToCPU(int fb_id, uint32_t width, uint32_t height, uint16_t* rgba16_buf) {
+    LLGL::MutableImageView rgba16_view(LLGL::ImageFormat::RGBA, LLGL::DataType::UInt8, rgba16_buf, width * height * 4);
+    llgl_renderer->ReadTexture(*textures[framebuffers[fb_id].second],
+                               LLGL::TextureRegion({ 0, 0, 0 }, { width, height, 1 }), rgba16_view);
 }
 
 void Fast::GfxRenderingAPILLGL::ResolveMSAAColorBuffer(int fb_id_target, int fb_id_source) {
@@ -688,11 +781,27 @@ Fast::GfxRenderingAPILLGL::GetPixelDepth(int fb_id, const std::set<std::pair<flo
     return {};
 }
 
-void* Fast::GfxRenderingAPILLGL::GetFramebufferTextureId(int fb_id) {
+ImTextureID Fast::GfxRenderingAPILLGL::GetFramebufferTextureId(int fb_id) {
+    // TODO: not finish
+    return nullptr;
+    switch (llgl_renderer->GetRendererID()) {
+        case LLGL::RendererID::OpenGL:
+            LLGL::OpenGL::ResourceNativeHandle native_handle;
+            textures[framebuffers[fb_id].second]->GetNativeHandle(&native_handle, sizeof(native_handle));
+            return (void*)native_handle.id;
+#ifdef LLGL_BUILD_RENDERER_VULKAN
+        case LLGL::RendererID::Vulkan:
+            LLGL::VKTexture* vk_texture = static_cast<LLGL::VKTexture*>(textures[framebuffers[fb_id].second]);
+            // return ImGui_ImplVulkan_AddTexture(vk_texture->Get, vk_texture->GetVkImageView(),
+            //                                    vk_texture->GetVkImageLayout());
+#endif
+    }
     return nullptr;
 }
 
 void Fast::GfxRenderingAPILLGL::SelectTextureFb(int fb_id) {
+    int tile = 0;
+    SelectTexture(tile, framebuffers[fb_id].second);
 }
 
 void Fast::GfxRenderingAPILLGL::DeleteTexture(uint32_t texture_id) {

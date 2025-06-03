@@ -144,7 +144,7 @@ void Fast3dWindow::InitWindowManager() {
 #endif
         case Ship::WindowBackend::FAST3D_SDL_LLGL:
             mWindowManagerApi = new GfxWindowBackendSDL2();
-           mRenderingApi = new GfxRenderingAPILLGL(mWindowManagerApi);
+            mRenderingApi = new GfxRenderingAPILLGL(mWindowManagerApi);
             break;
         default:
             SPDLOG_ERROR("Could not load the correct rendering backend");

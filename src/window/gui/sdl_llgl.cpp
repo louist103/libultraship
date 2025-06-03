@@ -50,7 +50,8 @@ SDLSurface::SDLSurface(const LLGL::Extent2D& size, const char* title, int render
 
             SDL_GL_MakeCurrent(wnd, ctx);
 
-            handle = LLGL::OpenGL::RenderSystemNativeHandle{ LLGL::OpenGL::RenderSystemNativeType::GLX ,(GLXContext)ctx };
+            handle =
+                LLGL::OpenGL::RenderSystemNativeHandle{ LLGL::OpenGL::RenderSystemNativeType::GLX, (GLXContext)ctx };
 
             desc.nativeHandle = (void*)&handle;
             desc.nativeHandleSize = sizeof(LLGL::OpenGL::RenderSystemNativeHandle);
@@ -115,6 +116,7 @@ bool SDLSurface::GetNativeHandle(void* nativeHandle, std::size_t nativeHandleSiz
 }
 
 LLGL::Extent2D SDLSurface::GetContentSize() const {
+    SDL_GL_GetDrawableSize(wnd, (int*)&size_.width, (int*)&size_.height);
     return size_;
 }
 
