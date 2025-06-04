@@ -245,7 +245,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
         WIN32
         _CONSOLE
         _CRT_SECURE_NO_WARNINGS
-        ENABLE_DX11
         NOMINMAX
     )
 endif()
@@ -287,7 +286,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     endif()
 else()
     target_compile_definitions(libultraship PRIVATE
-        ENABLE_OPENGL
         $<$<CONFIG:Debug>:_DEBUG>
         $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
         $<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=0>

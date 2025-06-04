@@ -40,6 +40,7 @@ if(Vulkan_FOUND)
             PRIVATE
             ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
     )
+    link_libraries(Vulkan::Vulkan)
 endif()
 
 target_include_directories(ImGui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -174,25 +175,40 @@ endif()
 
 link_libraries(LLGL)
 
-include(cmake/FindVulkan.cmake)
+# include(cmake/FindVulkan.cmake)
 set(SPIRV-Cross_DIR cmake/FIndPkgs)
-find_package(Vulkan REQUIRED SPIRV-Tools)
-find_package(Vulkan REQUIRED glslang)
+# find_package(Vulkan REQUIRED SPIRV-Tools)
+# find_package(Vulkan REQUIRED glslang)
 
 find_package(glslang REQUIRED)
 
 # link_libraries(Vulkan::SPIRV-Tools)
-link_libraries(Vulkan::glslang)
-link_libraries(Vulkan::Vulkan)
+# link_libraries(Vulkan::glslang)
 link_libraries(glslang::glslang glslang::glslang-default-resource-limits glslang::SPIRV glslang::SPVRemapper)
 
-find_package(SPIRV-Cross REQUIRED)
-link_libraries(
-        SPIRV-Cross::spirv-cross-core
-        SPIRV-Cross::spirv-cross-glsl # or others as needed
-        SPIRV-Cross::spirv-cross-msl # or others as needed
-        SPIRV-Cross::spirv-cross-hlsl
-)
+find_package(spirv_cross_core REQUIRED)
+# if(LLGL_BUILD_RENDERER_OPENGL)
+    find_package(spirv_cross_glsl REQUIRED)
+    include_directories(${spirv_cross_glsl_SOURCE_DIR}/include)
+    link_libraries(spirv-cross-glsl)
+# endif()
+# if(LLGL_BUILD_RENDERER_VULKAN OR LLGL_BUILD_RENDERER_DIRECT3D11 OR LLGL_BUILD_RENDERER_DIRECT3D12)
+    find_package(spirv_cross_hlsl REQUIRED)
+    include_directories(${spirv_cross_hlsl_SOURCE_DIR}/include)
+    link_libraries(spirv-cross-hlsl)
+# endif()
+# if(LLGL_BUILD_RENDERER_METAL)
+    find_package(spirv_cross_msl REQUIRED)
+    include_directories(${spirv_cross_msl_SOURCE_DIR}/include)
+    link_libraries(spirv-cross-msl)
+# endif()
+find_package(spirv_cross_cpp REQUIRED)
+
+include_directories(${spirv_cross_core_SOURCE_DIR}/include)
+include_directories(${spirv_cross_cpp_SOURCE_DIR}/include)
+
+link_libraries(spirv-cross-core)
+link_libraries(spirv-cross-cpp)
 
 if(WIN32)
     set(EXTERNAL_INCLUDE_DIR "${llgl_SOURCE_DIR}/external")
