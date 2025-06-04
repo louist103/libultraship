@@ -42,6 +42,8 @@
 #include "port/mobile/MobileImpl.h"
 #endif
 
+#include <imgui_impl_sdl2.h>
+
 #ifdef ENABLE_OPENGL
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
@@ -160,11 +162,13 @@ void Gui::Init() {
 void Gui::ImGuiWMInit() {
     Fast::GuiWindowInitData* mImpl = mInterpreter.lock()->mWapi->GetInitDataPtr();
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
+#ifdef ENABLE_OPENGL
         case WindowBackend::FAST3D_SDL_OPENGL:
             SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
             SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
             ImGui_ImplSDL2_InitForOpenGL(static_cast<SDL_Window*>(mImpl->Opengl.Window), mImpl->Opengl.Context);
             break;
+#endif
 #if __APPLE__
         case WindowBackend::FAST3D_SDL_METAL:
             SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
@@ -174,7 +178,7 @@ void Gui::ImGuiWMInit() {
 #endif
 #if defined(ENABLE_DX11) || defined(ENABLE_DX12)
         case WindowBackend::FAST3D_DXGI_DX11:
-            ImGui_ImplWin32_Init(mImpl.Dx11.Window);
+            ImGui_ImplWin32_Init(mImpl->Dx11.Window);
             break;
 #endif
         case WindowBackend::FAST3D_SDL_LLGL:
@@ -186,6 +190,7 @@ void Gui::ImGuiWMInit() {
 }
 
 void Gui::ImGuiBackendInit() {
+    Fast::GuiWindowInitData* mImpl = mInterpreter.lock()->mWapi->GetInitDataPtr();
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
 #ifdef ENABLE_OPENGL
         case WindowBackend::FAST3D_SDL_OPENGL:
@@ -211,8 +216,8 @@ void Gui::ImGuiBackendInit() {
 
 #ifdef ENABLE_DX11
         case WindowBackend::FAST3D_DXGI_DX11:
-            ImGui_ImplDX11_Init(static_cast<ID3D11Device*>(mImpl.Dx11.Device),
-                                static_cast<ID3D11DeviceContext*>(mImpl.Dx11.DeviceContext));
+            ImGui_ImplDX11_Init(static_cast<ID3D11Device*>(mImpl->Dx11.Device),
+                                static_cast<ID3D11DeviceContext*>(mImpl->Dx11.DeviceContext));
             break;
 #endif
         default:
