@@ -1,14 +1,9 @@
 @prism(type='fragment', name='Fast3D Fragment Shader', version='1.0.0', description='Ported shader to prism', author='Emill & Prism Team')
 
 #version 450 core
+#extension GL_EXT_samplerless_texture_functions : require
 
-layout(binding = @{get_binding_index("samplerState", "Sampler", "")}) uniform sampler samplerState;
-
-@for(i in 0..2)
-    @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTex@{i};
-    @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMask" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTexMask@{i};
-    @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlend" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTexBlend@{i};
-@end
+// layout(binding = {get_binding_index("samplerState", "Sampler", "")}) uniform sampler samplerState;
 
 layout(std140, binding = @{get_binding_index("frame_count", "Buffer", "ConstantBuffer")}) uniform FrameCount {
     int frame_count;
@@ -16,6 +11,12 @@ layout(std140, binding = @{get_binding_index("frame_count", "Buffer", "ConstantB
 layout(std140, binding = @{get_binding_index("noise_scale", "Buffer", "ConstantBuffer")}) uniform NoiseScale {
     float noise_scale;
 };
+
+@for(i in 0..2)
+    @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTex@{i};
+    @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMask" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTexMask@{i};
+    @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlend" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTexBlend@{i};
+@end
 
 @for(i in 0..2)
     @if(o_textures[i])
@@ -68,7 +69,7 @@ vec4 filter3point(in sampler2D tex, in vec2 texCoord, in vec2 texSize) {
     return c0 + abs(offset.x)*(c1-c0) + abs(offset.y)*(c2-c0);
 }
 
-vec4 hookTexture2D(in int id, sampler2D tex, in vec2 uv, in vec2 texSize) {
+vec4 hookTexture2D(in int id, in sampler2D tex, in vec2 uv, in vec2 texSize) {
 @if(o_three_point_filtering)
     // ignore the texture filtering setting for now
     // if(texture_filtering[id] == @{FILTER_THREE_POINT}) {

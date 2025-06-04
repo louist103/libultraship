@@ -14,7 +14,12 @@ namespace Fast {
 
 struct ShaderProgramLLGL {
     int numInputs;
-    bool usedTextures[2];
+    int samplerStateBinding;
+    int frameCountBinding;
+    int noiseScaleBinding;
+    std::optional<int> bindingTexture[2];
+    std::optional<int> bindingMask[2];
+    std::optional<int> bindingBlend[2];
     LLGL::PipelineState* pipeline;
     LLGL::VertexFormat vertexFormat;
 };
@@ -77,7 +82,9 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
                                      LLGL::VertexFormat& vertexFormat);
     std::map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL> mShaderProgramPool;
     struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;
-    std::vector<LLGL::Buffer*> mVertexBuffers;
+    std::vector<LLGL::Buffer*> garbage_collection_buffers;
+    int frame_count = 0;
+    float noise_scale = 0.0f;
 };
 } // namespace Fast
 

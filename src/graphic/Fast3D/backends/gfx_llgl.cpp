@@ -388,14 +388,14 @@ std::string GfxRenderingAPILLGL::llgl_build_fs_shader(const CCFeatures& cc_featu
             }
         }
     }
-    // SPDLOG_INFO("=========== FRAGMENT SHADER ============");
-    // // print line per line with number
-    // size_t line_num = 0;
-    // for (const auto& line : StringHelper::Split(result, "\n")) {
-    //     printf("%zu: %s\n", line_num, line.c_str());
-    //     line_num++;
-    // }
-    // SPDLOG_INFO("========================================");
+    SPDLOG_INFO("=========== FRAGMENT SHADER ============");
+    // print line per line with number
+    size_t line_num = 0;
+    for (const auto& line : StringHelper::Split(result, "\n")) {
+        printf("%zu: %s\n", line_num, line.c_str());
+        line_num++;
+    }
+    SPDLOG_INFO("========================================");
     return result;
 }
 
@@ -490,6 +490,22 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
         SPDLOG_ERROR("fragShader: {}", report->GetText());
     }
 
+    if (std::holds_alternative<std::string>(vertShaderSourceC)) {
+        int line_num = 0;
+        for (const auto& line : StringHelper::Split(std::get<std::string>(vertShaderSourceC), "\n")) {
+            printf("%d: %s\n", line_num, line.c_str());
+            line_num++;
+        }
+    }
+
+    if (std::holds_alternative<std::string>(fragShaderSourceC)) {
+        int line_num = 0;
+        for (const auto& line : StringHelper::Split(std::get<std::string>(fragShaderSourceC), "\n")) {
+            printf("%d: %s\n", line_num, line.c_str());
+            line_num++;
+        }
+    }
+
     // Create graphics pipeline
     LLGL::PipelineState* pipeline = nullptr;
     LLGL::PipelineCache* pipelineCache = nullptr;
@@ -537,9 +553,31 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
     ShaderProgramLLGL* prg = &mShaderProgramPool[std::make_pair(shader_id0, shader_id1)];
 
     auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf, pipeline_layout);
+    int i = 0;
+    for (auto& binding : layoutDesc.bindings) {
+        // harcode for now
+        if (binding.name.compare("uTex0") == 0) {
+            prg->bindingTexture[0] = i;
+        } else if (binding.name.compare("uTex1") == 0) {
+            prg->bindingTexture[1] = i;
+        } else if (binding.name.compare("uTexMask0") == 0) {
+            prg->bindingMask[0] = i;
+        } else if (binding.name.compare("uTexMask1") == 0) {
+            prg->bindingMask[1] = i;
+        } else if (binding.name.compare("uTexBlend0") == 0) {
+            prg->bindingBlend[0] = i;
+        } else if (binding.name.compare("uTexBlend1") == 0) {
+            prg->bindingBlend[1] = i;
+        } else if (binding.name.compare("samplerState") == 0) {
+            prg->samplerStateBinding = i;
+        } else if (binding.name.compare("frame_count") == 0) {
+            prg->frameCountBinding = i;
+        } else if (binding.name.compare("noise_scale") == 0) {
+            prg->noiseScaleBinding = i;
+        }
+        i++;
+    }
     prg->numInputs = cc_features.numInputs;
-    prg->usedTextures[0] = cc_features.usedTextures[0];
-    prg->usedTextures[1] = cc_features.usedTextures[1];
     prg->pipeline = pipeline;
     prg->vertexFormat = vertexFormat;
     mCurrentShaderProgram = prg;
@@ -560,8 +598,8 @@ void Fast::GfxRenderingAPILLGL::ShaderGetInfo(struct ShaderProgram* prg, uint8_t
         return;
     }
     *num_inputs = p->numInputs;
-    used_textures[0] = p->usedTextures[0];
-    used_textures[1] = p->usedTextures[1];
+    used_textures[0] = p->bindingTexture[0].has_value();
+    used_textures[1] = p->bindingTexture[1].has_value();
 }
 
 uint32_t Fast::GfxRenderingAPILLGL::NewTexture(void) {
@@ -570,6 +608,11 @@ uint32_t Fast::GfxRenderingAPILLGL::NewTexture(void) {
 }
 
 void Fast::GfxRenderingAPILLGL::SelectTexture(int tile, uint32_t texture_id) {
+    // tile 0-1 normal texture, 2-3 mask texture 4-5 blend texture
+    if (tile < 0 || tile >= 6) {
+        SPDLOG_ERROR("Invalid tile index: {}", tile);
+        return;
+    }
     // TODO: not finish
     current_tile = tile;
     current_texture_ids[current_tile] = texture_id;
@@ -617,10 +660,60 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
     }
 
     LLGL::Buffer* vertexBuffer = llgl_renderer->CreateBuffer(vboDesc, buf_vbo);
+
+    LLGL::Sampler* sampler = llgl_renderer->CreateSampler(LLGL::SamplerDescriptor{});
+
+    LLGL::BufferDescriptor bufferDescFrameCount;
+    {
+        bufferDescFrameCount.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        bufferDescFrameCount.size = sizeof(int);
+    }
+    LLGL::Buffer* frameCountBuffer = llgl_renderer->CreateBuffer(bufferDescFrameCount, &frame_count);
+
+    LLGL::BufferDescriptor bufferDescNoiseScale;
+    {
+        bufferDescNoiseScale.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        bufferDescNoiseScale.size = sizeof(float);
+    }
+    LLGL::Buffer* noiseScaleBuffer = llgl_renderer->CreateBuffer(bufferDescNoiseScale, &noise_scale);
+
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
     llgl_cmdBuffer->SetPipelineState(*mCurrentShaderProgram->pipeline);
+
+    llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
+    llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
+
+    bool add_sampler = false;
+
+    for (int i = 0; i < 2; i++) {
+
+        if (mCurrentShaderProgram->bindingTexture[i].has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i], *textures[current_texture_ids[i]]);
+            if (!add_sampler) {
+                // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
+                add_sampler = true;
+            }
+        }
+
+        if (mCurrentShaderProgram->bindingMask[i].has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i], *textures[current_texture_ids[2 + i]]);
+            if (!add_sampler) {
+                // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
+                add_sampler = true;
+            }
+        }
+
+        if (mCurrentShaderProgram->bindingBlend[i].has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i], *textures[current_texture_ids[4 + i]]);
+            if (!add_sampler) {
+                // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
+                add_sampler = true;
+            }
+        }
+    }
+
     llgl_cmdBuffer->Draw(3 * buf_vbo_num_tris, 0);
-    mVertexBuffers.push_back(vertexBuffer);
+    // garbage_collection_buffers.push_back(vertexBuffer);
 }
 
 void Fast::GfxRenderingAPILLGL::Init() {
@@ -666,6 +759,13 @@ void Fast::GfxRenderingAPILLGL::FinishRender(void) {
     llgl_cmdBuffer->EndRenderPass();
     llgl_cmdBuffer->End();
     llgl_swapChain->Present();
+    for (auto& buffer : garbage_collection_buffers) {
+        if (buffer != nullptr) {
+            llgl_renderer->Release(*buffer);
+            buffer = nullptr;
+        }
+    }
+    garbage_collection_buffers.clear();
 }
 
 int Fast::GfxRenderingAPILLGL::CreateFramebuffer(void) {
