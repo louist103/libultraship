@@ -2,7 +2,8 @@
 
 #version 450 core
 
-layout(location = @{get_vs_input_location("aVtxPos", "RGBA32Float")}) in vec4 aVtxPos;
+// should stay position
+layout(location = @{get_vs_input_location("position", "RGBA32Float")}) in vec4 position;
 
 @for(i in 0..2)
     @if(o_textures[i])
@@ -73,5 +74,5 @@ void main() {
     @for(i in 0..o_inputs)
         vInput@{i + 1} = aInput@{i + 1};
     @end
-    gl_Position = aVtxPos;
+    gl_Position = position;
 }
