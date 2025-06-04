@@ -4,7 +4,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
 #include "imgui_impl_vulkan.h"
 #endif
 #ifdef __APPLE__
@@ -16,7 +16,7 @@
 #endif
 
 #include <LLGL/Backend/OpenGL/NativeHandle.h>
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
 #include <LLGL/Backend/Vulkan/NativeHandle.h>
 #endif
 #ifdef __APPLE__
@@ -132,7 +132,7 @@ using D3D12DescriptorHeapAllocatorPtr = std::unique_ptr<D3D12DescriptorHeapAlloc
 static D3D12DescriptorHeapAllocatorPtr g_heapAllocator;
 #endif
 
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
 static VkFormat GetVulkanColorFormat(LLGL::Format format) {
     return (format == LLGL::Format::BGRA8UNorm ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8G8B8A8_UNORM);
 }
@@ -294,7 +294,7 @@ void InitImGui(SDLSurface& wnd, LLGL::RenderSystemPtr& renderer, LLGL::SwapChain
             break;
         }
 #endif
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
         case LLGL::RendererID::Vulkan: {
             ImGui_ImplSDL2_InitForVulkan(wnd.wnd);
             LLGL::Vulkan::RenderSystemNativeHandle instance;
@@ -350,7 +350,7 @@ void NewFrameImGui(LLGL::RenderSystemPtr& renderer, LLGL::CommandBuffer* cmdBuff
             ImGui_ImplDX12_NewFrame();
             break;
 #endif
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
         case LLGL::RendererID::Vulkan:
             ImGui_ImplVulkan_NewFrame();
             break;
@@ -386,7 +386,7 @@ void RenderImGui(ImDrawData* data, LLGL::RenderSystemPtr& renderer, LLGL::Comman
             break;
         }
 #endif
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
         case LLGL::RendererID::Vulkan: {
             LLGL::Vulkan::CommandBufferNativeHandle cmdBuffer;
             llgl_cmdBuffer->GetNativeHandle(&cmdBuffer, sizeof(LLGL::Vulkan::CommandBufferNativeHandle));
@@ -438,7 +438,7 @@ void ShutdownImGui(LLGL::RenderSystemPtr& renderer) {
             ImGui_ImplDX12_Shutdown();
             break;
 #endif
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
         case LLGL::RendererID::Vulkan:
             ImGui_ImplVulkan_Shutdown();
             break;
