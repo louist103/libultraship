@@ -13,7 +13,7 @@
 #include "gfx_rendering_api.h"
 
 #include <LLGL/Backend/OpenGL/NativeHandle.h>
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
 #include <LLGL/Backend/Vulkan/NativeHandle.h>
 #include <imgui_impl_vulkan.h>
 #include <LLGL/../../sources/Renderer/Vulkan/Texture/VKTexture.h>
@@ -248,7 +248,7 @@ prism::ContextTypes* get_vs_input_location(prism::ContextItems* items, prism::Co
     LLGL::VertexFormat* vertex_format =
         static_cast<LLGL::VertexFormat*>((void*)std::get<prism::Opaque>(items->at("vertex_format")).ptr);
 
-    LLGL::StringLiteral name_literal{ name_str.c_str(), true };
+    LLGL::StringLiteral name_literal{ name_str.c_str(), LLGL::CopyTag{} };
 
     vertex_format->AppendAttribute({ name_literal, llgl_get_format(format) });
 
@@ -301,7 +301,7 @@ prism::ContextTypes* get_binding_index(prism::ContextItems* items, prism::Contex
 
     long stage_flags = std::get<int>(items->at("stage_flags"));
 
-    LLGL::StringLiteral name_literal{ name_str.c_str(), true };
+    LLGL::StringLiteral name_literal{ name_str.c_str(), LLGL::CopyTag{} };
 
     LLGL::PipelineLayoutDescriptor* layoutDesc =
         static_cast<LLGL::PipelineLayoutDescriptor*>((void*)std::get<prism::Opaque>(items->at("layout_desc")).ptr);
@@ -360,7 +360,7 @@ std::string GfxRenderingAPILLGL::llgl_build_fs_shader(const CCFeatures& cc_featu
         // local variables
         { "input_index", 0 },
         { "binding_index", 1 },
-        { "layout_desc", (prism::Opaque){ (uintptr_t)&layoutDesc } },
+        { "layout_desc", prism::Opaque{ (uintptr_t)&layoutDesc } },
         { "stage_flags", LLGL::StageFlags::FragmentStage },
     };
     processor.populate(context);
@@ -418,8 +418,8 @@ std::string GfxRenderingAPILLGL::llgl_build_vs_shader(const CCFeatures& cc_featu
         { "input_index", 0 },
         { "binding_index", 1 },
         { "output_index", 0 },
-        { "vertex_format", (prism::Opaque){ (uintptr_t)&vertexFormat } },
-        { "layout_desc", (prism::Opaque){ (uintptr_t)&layoutDesc } },
+        { "vertex_format", prism::Opaque{ (uintptr_t)&vertexFormat } },
+        { "layout_desc", prism::Opaque{ (uintptr_t)&layoutDesc } },
         { "stage_flags", LLGL::StageFlags::VertexStage },
     };
     processor.populate(context);
@@ -859,7 +859,7 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
     const LLGL::TextureLocation location({ dstX0, dstY0, 0 });
     llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second], location,
                                 *textures[framebuffers[fb_src_id].second], location,
-                                { dstX1 - dstX0, dstY1 - dstY0, 0 });
+                                { (uint32_t)(dstX1 - dstX0), (uint32_t)(dstY1 - dstY0), 0 });
 }
 
 void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {
@@ -889,7 +889,7 @@ ImTextureID Fast::GfxRenderingAPILLGL::GetFramebufferTextureId(int fb_id) {
             LLGL::OpenGL::ResourceNativeHandle native_handle;
             textures[framebuffers[fb_id].second]->GetNativeHandle(&native_handle, sizeof(native_handle));
             return (void*)native_handle.id;
-#ifdef LLGL_BUILD_RENDERER_VULKAN
+#if LLGL_BUILD_RENDERER_VULKAN
         case LLGL::RendererID::Vulkan:
             LLGL::VKTexture* vk_texture = static_cast<LLGL::VKTexture*>(textures[framebuffers[fb_id].second]);
             // return ImGui_ImplVulkan_AddTexture(vk_texture->Get, vk_texture->GetVkImageView(),
