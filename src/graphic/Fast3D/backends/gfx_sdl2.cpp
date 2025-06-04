@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#if defined(ENABLE_OPENGL) || defined(__APPLE__)
+#if defined(ENABLE_OPENGL) || defined(__APPLE__) || 1
 
 #ifdef __MINGW32__
 #define FOR_WINDOWS 1
