@@ -114,7 +114,8 @@ class GfxRenderingAPIDX11 final : public GfxRenderingAPI {
 
     PFN_D3D11_CREATE_DEVICE mDX11CreateDevice;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> mContext;
-    Microsoft::WRL::ComPtr<ID3D11Device> mDevice
+    Microsoft::WRL::ComPtr<ID3D11Device> mDevice;
+    GfxWindowBackendDXGI* mWindowBackend = nullptr;
     D3D_FEATURE_LEVEL mFeatureLevel;
 
   private:

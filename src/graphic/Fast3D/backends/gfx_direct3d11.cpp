@@ -278,7 +278,7 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
 
     // Create ImGui
 
-    Ship::GuiWindowInitData window_impl;
+    Fast::GuiWindowInitData window_impl;
     window_impl.Dx11 = { mWindowBackend->GetWindowHandle(), mContext.Get(), mDevice.Get() };
     Ship::Context::GetInstance()->GetWindow()->GetGui()->Init(window_impl);
 }

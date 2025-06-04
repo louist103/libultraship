@@ -520,7 +520,7 @@ static uint64_t qpc_init, qpc_freq;
 GfxWindowBackendDXGI::~GfxWindowBackendDXGI() {
 }
 
-Ship::GuiWindowInitData GfxWindowBackendDXGI::Init(const char* game_name, const char* gfx_api_name, bool start_in_fullscreen,
+Fast::GuiWindowInitData GfxWindowBackendDXGI::Init(const char* game_name, const char* gfx_api_name, bool start_in_fullscreen,
                                 uint32_t width, uint32_t height, int32_t posX, int32_t posY) {
     LARGE_INTEGER lqpc_init, lqpc_freq;
     QueryPerformanceCounter(&lqpc_init);
