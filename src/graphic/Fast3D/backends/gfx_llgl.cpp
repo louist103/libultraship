@@ -521,7 +521,7 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
             .writeEnabled = true,
             .compareOp = LLGL::CompareOp::Less,
         };
-        pipelineDesc.rasterizer = LLGL::RasterizerDescriptor{ .cullMode = LLGL::CullMode::Front };
+        pipelineDesc.rasterizer = LLGL::RasterizerDescriptor{ .cullMode = LLGL::CullMode::Disabled };
     }
 
     // Create graphics PSO
@@ -641,11 +641,15 @@ void Fast::GfxRenderingAPILLGL::SetZmodeDecal(bool zmode_decal) {
 }
 
 void Fast::GfxRenderingAPILLGL::SetViewport(int x, int y, int width, int height) {
-    llgl_cmdBuffer->SetViewport(LLGL::Viewport(x, y, width, height));
+    auto resolution = llgl_swapChain->GetResolution();
+    int y_inverted = resolution.height - y - height;
+    llgl_cmdBuffer->SetViewport(LLGL::Viewport(x, y_inverted, width, height));
 }
 
 void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) {
-    llgl_cmdBuffer->SetScissor(LLGL::Scissor(x, y, width, height));
+    auto resolution = llgl_swapChain->GetResolution();
+    int y_inverted = resolution.height - y - height;
+    llgl_cmdBuffer->SetScissor(LLGL::Scissor(x, y_inverted, width, height));
 }
 
 void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
@@ -843,8 +847,14 @@ void Fast::GfxRenderingAPILLGL::StartDrawToFramebuffer(int fb_id, float noise_sc
         SPDLOG_ERROR("Invalid framebuffer ID: {}", fb_id);
         return;
     }
+    this->noise_scale = noise_scale;
     llgl_cmdBuffer->EndRenderPass();
-    llgl_cmdBuffer->BeginRenderPass(*framebuffers[fb_id].first);
+    if (fb_id == 0) {
+        llgl_cmdBuffer->BeginRenderPass(*llgl_swapChain);
+    } else {
+        // Set the noise scale for the shader
+        llgl_cmdBuffer->BeginRenderPass(*framebuffers[fb_id].first);
+    }
     // llgl_cmdBuffer->SetViewport(framebuffers[fb_id].first->GetResolution());
 }
 
@@ -864,7 +874,7 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
 
 void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {
     int flags = 0 | (color ? LLGL::ClearFlags::Color : 0) | (depth ? LLGL::ClearFlags::Depth : 0);
-    llgl_cmdBuffer->Clear(flags, LLGL::ClearValue{ 0.0f, 0.0f, 0.0f, 1.0f });
+    llgl_cmdBuffer->Clear(flags, LLGL::ClearValue{ 0.0f, 0.2f, 0.2f, 1.0f });
 }
 
 void Fast::GfxRenderingAPILLGL::ReadFramebufferToCPU(int fb_id, uint32_t width, uint32_t height, uint16_t* rgba16_buf) {

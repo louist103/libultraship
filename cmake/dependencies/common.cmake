@@ -139,7 +139,7 @@ set(LLGL_OUTPUT_DIR ${CMAKE_BINARY_DIR} CACHE INTERNAL "LLGL output directory")
 set(llgl_patch_file ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/llgl.patch)
 
 # Applies the patch or checks if it has already been applied successfully previously. Will error otherwise.
-set(llgl_apply_patch_if_needed git apply ${llgl_patch_file} ${git_hide_output} || git apply --reverse --check ${llgl_patch_file})
+set(llgl_apply_patch_command ${CMAKE_COMMAND} -Dpatch_file=${llgl_patch_file} -Dwith_reset=TRUE -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/git-patch.cmake)
 
 FetchContent_Declare(
     llgl

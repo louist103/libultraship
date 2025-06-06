@@ -339,6 +339,7 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
 
     bool use_llgl = true;
     if (use_llgl) {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         mInitData.LLGL = { std::make_shared<SDLSurface>(
                                LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
                                LLGL::RendererID::OpenGL, mInitData.LLGL.desc),
@@ -603,7 +604,7 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
 #else
                     SDL_GL_GetDrawableSize(mWnd, &mWindowWidth, &mWindowHeight);
 #endif
-                    llgl_swapChain->ResizeBuffers({ (uint32_t)mWindowWidth, (uint32_t)mWindowWidth });
+                    // llgl_swapChain->ResizeBuffers({ (uint32_t)mWindowWidth, (uint32_t)mWindowWidth });
                     break;
                 case SDL_WINDOWEVENT_CLOSE:
                     if (event.window.windowID == SDL_GetWindowID(mWnd)) {
