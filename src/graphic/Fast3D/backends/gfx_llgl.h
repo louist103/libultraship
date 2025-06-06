@@ -26,7 +26,7 @@ struct ShaderProgramLLGL {
 class GfxRenderingAPILLGL : public GfxRenderingAPI {
   public:
     GfxRenderingAPILLGL(GfxWindowBackend* backend);
-    ~GfxRenderingAPILLGL() override = default;
+    ~GfxRenderingAPILLGL() override;
     const char* GetName() override;
     int GetMaxTextureSize() override;
     GfxClipParameters GetClipParameters() override;

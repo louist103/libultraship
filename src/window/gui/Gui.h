@@ -31,6 +31,7 @@ class Interpreter;
 #include "sdl_llgl.h"
 
 namespace Ship {
+class Window;
 
 typedef union {
     struct {
@@ -88,6 +89,7 @@ class Gui {
     bool GamepadNavigationEnabled();
     void BlockGamepadNavigation();
     void UnblockGamepadNavigation();
+    void ShutDownImGui(Ship::Window* window);
 
   protected:
     void StartFrame();
