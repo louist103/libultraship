@@ -29,9 +29,6 @@ LLGL::RenderSystemPtr llgl_renderer;
 LLGL::SwapChain* llgl_swapChain;
 LLGL::CommandBuffer* llgl_cmdBuffer;
 namespace Fast {
-GfxRenderingAPILLGL::~GfxRenderingAPILLGL() {
-    LLGL::RenderSystem::Unload(std::move(llgl_renderer));
-}
 
 GfxRenderingAPILLGL::GfxRenderingAPILLGL(GfxWindowBackend* backend) {
     mWindowBackend = backend;

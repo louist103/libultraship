@@ -219,7 +219,11 @@ void Gui::ShutDownImGui(Ship::Window* window) {
             ImGui_ImplDX11_Shutdown();
             break;
 #endif
+        case WindowBackend::FAST3D_SDL_LLGL:
+            ShutdownImGui(llgl_renderer);
+            break;
     }
+    LLGL::RenderSystem::Unload(std::move(llgl_renderer));
     ImGui::DestroyContext();
 }
 
