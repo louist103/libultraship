@@ -708,8 +708,6 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
 
     LLGL::Buffer* vertexBuffer = llgl_renderer->CreateBuffer(vboDesc, buf_vbo);
 
-    LLGL::Sampler* sampler = llgl_renderer->CreateSampler(LLGL::SamplerDescriptor{});
-
     LLGL::BufferDescriptor bufferDescFrameCount;
     {
         bufferDescFrameCount.bindFlags = LLGL::BindFlags::ConstantBuffer;
@@ -735,7 +733,7 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
 
     for (int i = 0; i < 2; i++) {
 
-        if (mCurrentShaderProgram->bindingTexture[i].has_value()) {
+        if (mCurrentShaderProgram->bindingTexture[i].has_value() && textures[current_texture_ids[i]] != nullptr) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i], *textures[current_texture_ids[i]]);
             if (!add_sampler) {
                 // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
@@ -743,7 +741,7 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
             }
         }
 
-        if (mCurrentShaderProgram->bindingMask[i].has_value()) {
+        if (mCurrentShaderProgram->bindingMask[i].has_value() && textures[current_texture_ids[2 + i]] != nullptr) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i], *textures[current_texture_ids[2 + i]]);
             if (!add_sampler) {
                 // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
@@ -751,7 +749,7 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
             }
         }
 
-        if (mCurrentShaderProgram->bindingBlend[i].has_value()) {
+        if (mCurrentShaderProgram->bindingBlend[i].has_value() && textures[current_texture_ids[4 + i]] != nullptr) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i], *textures[current_texture_ids[4 + i]]);
             if (!add_sampler) {
                 // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
@@ -761,7 +759,9 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
     }
 
     llgl_cmdBuffer->Draw(3 * buf_vbo_num_tris, 0);
-    // garbage_collection_buffers.push_back(vertexBuffer);
+    garbage_collection_buffers.push_back(vertexBuffer);
+    garbage_collection_buffers.push_back(frameCountBuffer);
+    garbage_collection_buffers.push_back(noiseScaleBuffer);
 }
 
 void Fast::GfxRenderingAPILLGL::Init() {
@@ -787,6 +787,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
 
     llgl_cmdBuffer = llgl_renderer->CreateCommandBuffer(LLGL::CommandBufferFlags::ImmediateSubmit);
     framebuffers.push_back({ llgl_swapChain, 0 });
+    sampler = llgl_renderer->CreateSampler(LLGL::SamplerDescriptor{});
 }
 
 void Fast::GfxRenderingAPILLGL::OnResize(void) {
@@ -911,9 +912,14 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
     }
     // probably wrong
     const LLGL::TextureLocation location({ dstX0, dstY0, 0 });
-    llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second], location,
-                                *textures[framebuffers[fb_src_id].second], location,
-                                { (uint32_t)(dstX1 - dstX0), (uint32_t)(dstY1 - dstY0), 0 });
+    if (fb_src_id==0) {
+        const LLGL::TextureRegion dstRegion({ 0, 0, 0 }, { dstX1 - dstX0, dstY1 - dstY0, 0 });
+        llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_dst_id].second], dstRegion, { 0, 0 });
+    } else {
+        llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second], location,
+            *textures[framebuffers[fb_src_id].second], location,
+            { (uint32_t)(dstX1 - dstX0), (uint32_t)(dstY1 - dstY0), 0 });
+    }
 }
 
 void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {

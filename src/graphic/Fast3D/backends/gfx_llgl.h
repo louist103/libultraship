@@ -72,7 +72,8 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
 
   private:
     int current_tile;
-    uint32_t current_texture_ids[6];
+    uint32_t current_texture_ids[6] = { 0, 0, 0, 0, 0, 0 };
+    LLGL::Sampler* sampler;
     std::vector<LLGL::Texture*> textures;
     std::vector<std::pair<LLGL::RenderTarget*, int>> framebuffers;
     bool srgb_mode = false;
