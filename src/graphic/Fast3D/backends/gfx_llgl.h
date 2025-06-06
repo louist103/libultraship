@@ -20,8 +20,8 @@ struct ShaderProgramLLGL {
     std::optional<int> bindingTexture[2];
     std::optional<int> bindingMask[2];
     std::optional<int> bindingBlend[2];
-    LLGL::PipelineState* pipeline;
     LLGL::VertexFormat vertexFormat;
+    LLGL::PipelineState* pipeline[2][2]; // [depth disabled][zmode decal]
 };
 class GfxRenderingAPILLGL : public GfxRenderingAPI {
   public:
@@ -81,6 +81,8 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
     std::string llgl_build_vs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc,
                                      LLGL::VertexFormat& vertexFormat);
     std::map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL> mShaderProgramPool;
+    bool disable_depth = true;
+    bool disable_write_depth = true;
     struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;
     std::vector<LLGL::Buffer*> garbage_collection_buffers;
     int frame_count = 0;

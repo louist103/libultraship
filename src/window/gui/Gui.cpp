@@ -224,7 +224,7 @@ void Gui::ShutDownImGui(Ship::Window* window) {
             break;
     }
     LLGL::RenderSystem::Unload(std::move(llgl_renderer));
-    ImGui::DestroyContext();
+    // ImGui::DestroyContext();
 }
 
 void Gui::ImGuiBackendInit() {

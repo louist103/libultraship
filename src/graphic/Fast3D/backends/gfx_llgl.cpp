@@ -453,7 +453,8 @@ std::string GfxRenderingAPILLGL::llgl_build_vs_shader(const CCFeatures& cc_featu
 
 LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL::SwapChain* llgl_swapChain,
                                      LLGL::VertexFormat& vertexFormat, std::string vertShaderSource,
-                                     std::string fragShaderSource, LLGL::PipelineLayout* pipelineLayout = nullptr) {
+                                     std::string fragShaderSource, LLGL::GraphicsPipelineDescriptor& pipelineDesc,
+                                     LLGL::PipelineLayout* pipelineLayout = nullptr) {
     const auto& languages = llgl_renderer->GetRenderingCaps().shadingLanguages;
     LLGL::ShaderDescriptor vertShaderDesc, fragShaderDesc;
 
@@ -510,22 +511,42 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
     LLGL::PipelineState* pipeline = nullptr;
     LLGL::PipelineCache* pipelineCache = nullptr;
 
-    LLGL::GraphicsPipelineDescriptor pipelineDesc;
     {
         pipelineDesc.vertexShader = vertShader;
         pipelineDesc.fragmentShader = fragShader;
         pipelineDesc.renderPass = llgl_swapChain->GetRenderPass();
         pipelineDesc.pipelineLayout = pipelineLayout;
         pipelineDesc.depth = LLGL::DepthDescriptor{
-            .testEnabled = true,
-            .writeEnabled = true,
-            .compareOp = LLGL::CompareOp::Less,
+            .testEnabled = false,
+            .writeEnabled = false,
+            .compareOp = LLGL::CompareOp::AlwaysPass,
         };
-        pipelineDesc.rasterizer = LLGL::RasterizerDescriptor{ .cullMode = LLGL::CullMode::Disabled };
+        pipelineDesc.rasterizer = LLGL::RasterizerDescriptor{ .cullMode = LLGL::CullMode::Front };
     }
 
     // Create graphics PSO
     pipeline = llgl_renderer->CreatePipelineState(pipelineDesc, pipelineCache);
+
+    // Link shader program and check for errors
+    if (const LLGL::Report* report = pipeline->GetReport()) {
+        if (report->HasErrors()) {
+            const char* a = report->GetText();
+            SPDLOG_ERROR(a);
+            throw std::runtime_error("Failed to link shader program");
+        }
+    }
+    return pipeline;
+}
+
+LLGL::PipelineState* duplicate_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL::SwapChain* llgl_swapChain,
+                                        LLGL::VertexFormat& vertexFormat, std::string vertShaderSource,
+                                        std::string fragShaderSource, LLGL::GraphicsPipelineDescriptor& pipelineDesc,
+                                        LLGL::PipelineLayout* pipelineLayout = nullptr) {
+    // Create graphics pipeline
+    LLGL::PipelineCache* pipelineCache = nullptr;
+
+    // Create graphics PSO
+    LLGL::PipelineState* pipeline = llgl_renderer->CreatePipelineState(pipelineDesc, pipelineCache);
 
     // Link shader program and check for errors
     if (const LLGL::Report* report = pipeline->GetReport()) {
@@ -552,7 +573,28 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
 
     ShaderProgramLLGL* prg = &mShaderProgramPool[std::make_pair(shader_id0, shader_id1)];
 
-    auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf, pipeline_layout);
+    LLGL::GraphicsPipelineDescriptor pipelineDesc;
+    for (int depth_bool = 0; depth_bool < 2; depth_bool++) {
+        for (int write_depth_bool = 0; write_depth_bool < 2; write_depth_bool++) {
+            if (depth_bool == 0 && write_depth_bool == 0) {
+                auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf,
+                                                pipelineDesc, pipeline_layout);
+                prg->pipeline[0][0] = pipeline;
+            } else {
+                pipelineDesc.depth.writeEnabled = write_depth_bool;
+                pipelineDesc.depth.testEnabled = depth_bool;
+                if (depth_bool) {
+                    pipelineDesc.depth.compareOp = LLGL::CompareOp::AlwaysPass;
+                } else {
+                    pipelineDesc.depth.compareOp = LLGL::CompareOp::Less;
+                }
+                auto pipeline = duplicate_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf,
+                                                   pipelineDesc, pipeline_layout);
+                prg->pipeline[depth_bool][write_depth_bool] = pipeline;
+            }
+        }
+    }
+
     int i = 0;
     for (auto& binding : layoutDesc.bindings) {
         // harcode for now
@@ -578,7 +620,6 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
         i++;
     }
     prg->numInputs = cc_features.numInputs;
-    prg->pipeline = pipeline;
     prg->vertexFormat = vertexFormat;
     mCurrentShaderProgram = prg;
     return (struct ShaderProgram*)prg;
@@ -635,6 +676,8 @@ void Fast::GfxRenderingAPILLGL::SetSamplerParameters(int sampler, bool linear_fi
 }
 
 void Fast::GfxRenderingAPILLGL::SetDepthTestAndMask(bool depth_test, bool z_upd) {
+    disable_depth = !depth_test;
+    disable_write_depth = !z_upd;
 }
 
 void Fast::GfxRenderingAPILLGL::SetZmodeDecal(bool zmode_decal) {
@@ -682,7 +725,8 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
     LLGL::Buffer* noiseScaleBuffer = llgl_renderer->CreateBuffer(bufferDescNoiseScale, &noise_scale);
 
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
-    llgl_cmdBuffer->SetPipelineState(*mCurrentShaderProgram->pipeline);
+    llgl_cmdBuffer->SetPipelineState(
+        *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1]);
 
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
@@ -874,7 +918,7 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
 
 void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {
     int flags = 0 | (color ? LLGL::ClearFlags::Color : 0) | (depth ? LLGL::ClearFlags::Depth : 0);
-    llgl_cmdBuffer->Clear(flags, LLGL::ClearValue{ 0.0f, 0.2f, 0.2f, 1.0f });
+    llgl_cmdBuffer->Clear(flags, LLGL::ClearValue{ 0.0f, 0.0f, 0.0f, 1.0f });
 }
 
 void Fast::GfxRenderingAPILLGL::ReadFramebufferToCPU(int fb_id, uint32_t width, uint32_t height, uint16_t* rgba16_buf) {
