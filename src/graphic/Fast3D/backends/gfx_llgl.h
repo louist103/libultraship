@@ -87,9 +87,8 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
   private:
     int current_tile;
     uint32_t current_texture_ids[6] = { 0, 0, 0, 0, 0, 0 };
-    LLGL::Sampler* current_sampler[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
     std::unordered_map<std::tuple<bool, int, int>, LLGL::Sampler*, tuple_bool_int_int_hash> samplers = {};
-    std::vector<LLGL::Texture*> textures;
+    std::vector<std::pair<LLGL::Texture*, LLGL::Sampler*>> textures;
     std::vector<std::pair<LLGL::RenderTarget*, int>> framebuffers;
     bool srgb_mode = false;
     Fast::FilteringMode current_filter_mode = Fast::FILTER_NONE;

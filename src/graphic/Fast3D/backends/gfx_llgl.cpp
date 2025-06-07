@@ -525,7 +525,8 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
             .writeEnabled = false,
             .compareOp = LLGL::CompareOp::AlwaysPass,
         };
-        pipelineDesc.rasterizer = LLGL::RasterizerDescriptor{ .cullMode = LLGL::CullMode::Front };
+        pipelineDesc.rasterizer = LLGL::RasterizerDescriptor{ .cullMode = LLGL::CullMode::Disabled };
+        pipelineDesc.blend.targets[0].blendEnabled = true;
     }
 
     // Create graphics PSO
@@ -655,6 +656,7 @@ void Fast::GfxRenderingAPILLGL::ShaderGetInfo(struct ShaderProgram* prg, uint8_t
 
 uint32_t Fast::GfxRenderingAPILLGL::NewTexture(void) {
     textures.resize(textures.size() + 1);
+    textures[textures.size() - 1].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
     return (uint32_t)(textures.size() - 1);
 }
 
@@ -679,20 +681,28 @@ void Fast::GfxRenderingAPILLGL::UploadTexture(const uint8_t* rgba32_buf, uint32_
     texDesc.type = LLGL::TextureType::Texture2D;
     texDesc.format = LLGL::Format::RGBA8UNorm;
     texDesc.extent = { width, height, 1 };
-    textures[current_texture_ids[current_tile]] = llgl_renderer->CreateTexture(texDesc, &imageView);
+    textures[current_texture_ids[current_tile]].first = llgl_renderer->CreateTexture(texDesc, &imageView);
+    textures[current_texture_ids[current_tile]].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
 }
 
 static LLGL::SamplerAddressMode gfx_cm_to_llgl(uint32_t val) {
-    // TODO: handle G_TX_MIRROR | G_TX_CLAMP
-    if (val & G_TX_CLAMP) {
-        return LLGL::SamplerAddressMode::Clamp;
+    switch (val) {
+        case G_TX_NOMIRROR | G_TX_CLAMP:
+            return LLGL::SamplerAddressMode::Clamp;
+        case G_TX_MIRROR | G_TX_WRAP:
+            return LLGL::SamplerAddressMode::Mirror;
+        case G_TX_MIRROR | G_TX_CLAMP:
+            // maybe some change are needed here
+            return LLGL::SamplerAddressMode::MirrorOnce;
+        case G_TX_NOMIRROR | G_TX_WRAP:
+            return LLGL::SamplerAddressMode::Repeat;
     }
-    return (val & G_TX_MIRROR) ? LLGL::SamplerAddressMode::Mirror : LLGL::SamplerAddressMode::Border;
+    return LLGL::SamplerAddressMode::Clamp;
 }
 
 void Fast::GfxRenderingAPILLGL::SetSamplerParameters(int tile, bool linear_filter, uint32_t cms, uint32_t cmt) {
     if (samplers.contains({ linear_filter, cms, cmt })) {
-        current_sampler[tile] = samplers[{ linear_filter, cms, cmt }];
+        textures[current_texture_ids[tile]].second = samplers[{ linear_filter, cms, cmt }];
         return;
     }
 
@@ -705,7 +715,7 @@ void Fast::GfxRenderingAPILLGL::SetSamplerParameters(int tile, bool linear_filte
 
     LLGL::Sampler* sampler = llgl_renderer->CreateSampler(samplerDesc);
     samplers[{ linear_filter, cms, cmt }] = sampler;
-    current_sampler[tile] = sampler;
+    textures[current_texture_ids[tile]].second = sampler;
 }
 
 void Fast::GfxRenderingAPILLGL::SetDepthTestAndMask(bool depth_test, bool z_upd) {
@@ -719,13 +729,15 @@ void Fast::GfxRenderingAPILLGL::SetZmodeDecal(bool zmode_decal) {
 void Fast::GfxRenderingAPILLGL::SetViewport(int x, int y, int width, int height) {
     auto resolution = llgl_swapChain->GetResolution();
     int y_inverted = resolution.height - y - height;
-    llgl_cmdBuffer->SetViewport(LLGL::Viewport(x, y_inverted, width, height));
+    int height_inverted = resolution.height - y_inverted;
+    llgl_cmdBuffer->SetViewport(LLGL::Viewport(x, y_inverted, width, height_inverted));
 }
 
 void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) {
     auto resolution = llgl_swapChain->GetResolution();
     int y_inverted = resolution.height - y - height;
-    llgl_cmdBuffer->SetScissor(LLGL::Scissor(x, y_inverted, width, height));
+    int height_inverted = resolution.height - y_inverted;
+    llgl_cmdBuffer->SetScissor(LLGL::Scissor(x, y_inverted, width, height_inverted));
 }
 
 void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
@@ -750,22 +762,22 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
 
     for (int i = 0; i < 2; i++) {
 
-        if (mCurrentShaderProgram->bindingTexture[i].has_value() && textures[current_texture_ids[i]] != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i], *textures[current_texture_ids[i]]);
+        if (mCurrentShaderProgram->bindingTexture[i].has_value() && textures[current_texture_ids[i]].first != nullptr) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i], *textures[current_texture_ids[i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTextureSampl[i],
-                                       *current_sampler[i]);
+                                       *textures[current_texture_ids[i]].second);
         }
 
-        if (mCurrentShaderProgram->bindingMask[i].has_value() && textures[current_texture_ids[2 + i]] != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i], *textures[current_texture_ids[2 + i]]);
+        if (mCurrentShaderProgram->bindingMask[i].has_value() && textures[current_texture_ids[2 + i]].first != nullptr) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i], *textures[current_texture_ids[2 + i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMaskSampl[i],
-                                       *current_sampler[2 + i]);
+                                       *textures[current_texture_ids[2 + i]].second);
         }
 
-        if (mCurrentShaderProgram->bindingBlend[i].has_value() && textures[current_texture_ids[4 + i]] != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i], *textures[current_texture_ids[4 + i]]);
+        if (mCurrentShaderProgram->bindingBlend[i].has_value() && textures[current_texture_ids[4 + i]].first != nullptr) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i], *textures[current_texture_ids[4 + i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlendSampl[i],
-                                       *current_sampler[4 + i]);
+                                       *textures[current_texture_ids[4 + i]].second);
         }
     }
 
@@ -810,9 +822,9 @@ void Fast::GfxRenderingAPILLGL::Init() {
     }
     noiseScaleBuffer = llgl_renderer->CreateBuffer(bufferDescNoiseScale, &noise_scale);
 
-    bool linear_filter = true;
-    int cms = 0;
-    int cmt = 0;
+    bool linear_filter = false;
+    int cms = G_TX_NOMIRROR | G_TX_WRAP;
+    int cmt = G_TX_NOMIRROR | G_TX_WRAP;
 
     LLGL::SamplerDescriptor samplerDesc;
     samplerDesc.addressModeU = gfx_cm_to_llgl(cms);
@@ -825,7 +837,6 @@ void Fast::GfxRenderingAPILLGL::Init() {
     samplers[{ linear_filter, cms, cmt }] = sampler;
     for (int tile = 0; tile < 6; tile++) {
         current_texture_ids[tile] = 0;
-        current_sampler[tile] = sampler;
     }
 }
 
@@ -858,7 +869,8 @@ void Fast::GfxRenderingAPILLGL::FinishRender(void) {
 
 int Fast::GfxRenderingAPILLGL::CreateFramebuffer(void) {
     textures.resize(textures.size() + 1);
-    textures[textures.size() - 1] = nullptr;
+    textures[textures.size() - 1].first = nullptr;
+    textures[textures.size() - 1].second = nullptr;
     int texture_id = (int)(textures.size() - 1);
     int fb_id = (int)framebuffers.size();
     framebuffers.resize(framebuffers.size() + 1);
@@ -883,9 +895,10 @@ void Fast::GfxRenderingAPILLGL::UpdateFramebufferParameters(int fb_id, uint32_t 
         llgl_renderer->Release(*framebuffers[fb_id].first);
         framebuffers[fb_id].first = nullptr;
     }
-    if (textures[framebuffers[fb_id].second] != nullptr) {
-        llgl_renderer->Release(*textures[framebuffers[fb_id].second]);
-        textures[framebuffers[fb_id].second] = nullptr;
+    if (textures[framebuffers[fb_id].second].first != nullptr) {
+        llgl_renderer->Release(*textures[framebuffers[fb_id].second].first);
+        textures[framebuffers[fb_id].second].first = nullptr;
+        textures[framebuffers[fb_id].second].second = nullptr;
     }
     LLGL::TextureDescriptor texDesc;
     {
@@ -897,7 +910,8 @@ void Fast::GfxRenderingAPILLGL::UpdateFramebufferParameters(int fb_id, uint32_t 
 
     LLGL::Texture* texture = llgl_renderer->CreateTexture(texDesc);
 
-    textures[framebuffers[fb_id].second] = texture;
+    textures[framebuffers[fb_id].second].first = texture;
+    textures[framebuffers[fb_id].second].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
 
     LLGL::RenderTargetDescriptor renderTargetDesc;
     {
@@ -953,10 +967,10 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
     const LLGL::TextureLocation location({ dstX0, dstY0, 0 });
     if (fb_src_id==0) {
         const LLGL::TextureRegion dstRegion({ 0, 0, 0 }, { dstX1 - dstX0, dstY1 - dstY0, 0 });
-        llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_dst_id].second], dstRegion, { 0, 0 });
+        llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_dst_id].second].first, dstRegion, { 0, 0 });
     } else {
-        llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second], location,
-            *textures[framebuffers[fb_src_id].second], location,
+        llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second].first, location,
+            *textures[framebuffers[fb_src_id].second].first, location,
             { (uint32_t)(dstX1 - dstX0), (uint32_t)(dstY1 - dstY0), 0 });
     }
 }
@@ -968,7 +982,12 @@ void Fast::GfxRenderingAPILLGL::ClearFramebuffer(bool color, bool depth) {
 
 void Fast::GfxRenderingAPILLGL::ReadFramebufferToCPU(int fb_id, uint32_t width, uint32_t height, uint16_t* rgba16_buf) {
     LLGL::MutableImageView rgba16_view(LLGL::ImageFormat::RGBA, LLGL::DataType::UInt8, rgba16_buf, width * height * 4);
-    llgl_renderer->ReadTexture(*textures[framebuffers[fb_id].second],
+    return;
+    if (fb_id == 0) {
+        llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_id].second].first,
+                               LLGL::TextureRegion({ 0, 0, 0 }, { width, height, 1 }), { 0, 0 });
+    }
+    llgl_renderer->ReadTexture(*textures[framebuffers[fb_id].second].first,
                                LLGL::TextureRegion({ 0, 0, 0 }, { width, height, 1 }), rgba16_view);
 }
 
@@ -986,11 +1005,11 @@ ImTextureID Fast::GfxRenderingAPILLGL::GetFramebufferTextureId(int fb_id) {
     switch (llgl_renderer->GetRendererID()) {
         case LLGL::RendererID::OpenGL:
             LLGL::OpenGL::ResourceNativeHandle native_handle;
-            textures[framebuffers[fb_id].second]->GetNativeHandle(&native_handle, sizeof(native_handle));
+            textures[framebuffers[fb_id].second].first->GetNativeHandle(&native_handle, sizeof(native_handle));
             return (void*)native_handle.id;
 #if LLGL_BUILD_RENDERER_VULKAN
         case LLGL::RendererID::Vulkan:
-            LLGL::VKTexture* vk_texture = static_cast<LLGL::VKTexture*>(textures[framebuffers[fb_id].second]);
+            LLGL::VKTexture* vk_texture = static_cast<LLGL::VKTexture*>(textures[framebuffers[fb_id].second].first);
             // return ImGui_ImplVulkan_AddTexture(vk_texture->Get, vk_texture->GetVkImageView(),
             //                                    vk_texture->GetVkImageLayout());
 #endif
@@ -1005,8 +1024,8 @@ void Fast::GfxRenderingAPILLGL::SelectTextureFb(int fb_id) {
 
 void Fast::GfxRenderingAPILLGL::DeleteTexture(uint32_t texture_id) {
     if (texture_id < textures.size()) {
-        llgl_renderer->Release(*textures[texture_id]);
-        textures[texture_id] = nullptr;
+        llgl_renderer->Release(*textures[texture_id].first);
+        textures[texture_id].first = nullptr;
     } else {
         SPDLOG_ERROR("Tried to delete texture with id {}, but it does not exist.", texture_id);
     }
