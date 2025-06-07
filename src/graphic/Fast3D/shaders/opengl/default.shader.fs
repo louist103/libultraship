@@ -12,11 +12,11 @@ layout(std140, binding = @{get_binding_index("noise_scale", "Buffer", "ConstantB
 };
 
 @for(i in 0..2)
-    @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTex@{i};
+    @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTex@{i};
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTexSampl" + to_string(i), "Sampler", "uTex" + to_string(i))}) uniform sampler uTexSampl@{i};
-    @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMask" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTexMask@{i};
+    @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMask" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTexMask@{i};
     @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMaskSampl" + to_string(i), "Sampler", "uTexMask" + to_string(i))}) uniform sampler uTexMaskSampl@{i};
-    @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlend" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTexBlend@{i};
+    @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlend" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTexBlend@{i};
     @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlendSampl" + to_string(i), "Sampler", "uTexBlend" + to_string(i))}) uniform sampler uTexBlendSampl@{i};
 @end
 
@@ -71,14 +71,14 @@ vec4 filter3point(in sampler2D tex, in vec2 texCoord, in vec2 texSize) {
     return c0 + abs(offset.x)*(c1-c0) + abs(offset.y)*(c2-c0);
 }
 
-vec4 hookTexture2D(in int id, in sampler2D tex, in vec2 uv, in vec2 texSize) {
+vec4 hookTexture2D(in int id, in texture2D tex, in sampler sampl, in vec2 uv, in vec2 texSize) {
 @if(o_three_point_filtering)
     // ignore the texture filtering setting for now
     // if(texture_filtering[id] == @{FILTER_THREE_POINT}) {
     //     return filter3point(tex, uv, texSize);
     // }
 @end
-    return texture(tex, uv);
+    return texture(sampler2D(tex, sampl), uv);
 }
 
 layout(location = 0) out vec4 fragColor;
@@ -89,7 +89,7 @@ void main() {
             @{s = o_clamp[i][0]}
             @{t = o_clamp[i][1]}
 
-            vec2 texSize@{i} = textureSize(uTex@{i}, 0);
+            vec2 texSize@{i} = textureSize(sampler2D(uTex@{i}, uTexSampl@{i}), 0);
 
             @if(!s && !t)
                 vec2 vTexCoordAdj@{i} = vTexCoord@{i};
@@ -103,15 +103,15 @@ void main() {
                 @end
             @end
 
-            vec4 texVal@{i} = hookTexture2D(@{i}, uTex@{i}, vTexCoordAdj@{i}, texSize@{i});
+            vec4 texVal@{i} = hookTexture2D(@{i}, uTex@{i}, uTexSampl@{i}, vTexCoordAdj@{i}, texSize@{i});
 
             @if(o_masks[i])
-                vec2 maskSize@{i} = textureSize(uTexMask@{i}, 0);
+                vec2 maskSize@{i} = textureSize(sampler2D(uTexMask@{i}, uTexMaskSampl@{i}), 0);
 
-                vec4 maskVal@{i} = hookTexture2D(@{i}, uTexMask@{i}, vTexCoordAdj@{i}, maskSize@{i});
+                vec4 maskVal@{i} = hookTexture2D(@{i}, uTexMask@{i}, uTexMaskSampl@{i}, vTexCoordAdj@{i}, maskSize@{i});
 
                 @if(o_blend[i])
-                    vec4 blendVal@{i} = hookTexture2D(@{i}, uTexBlend@{i}, vTexCoordAdj@{i}, texSize@{i});
+                    vec4 blendVal@{i} = hookTexture2D(@{i}, uTexBlend@{i}, uTexBlendSampl@{i}, vTexCoordAdj@{i}, texSize@{i});
                 @else
                     vec4 blendVal@{i} = vec4(0, 0, 0, 0);
                 @end

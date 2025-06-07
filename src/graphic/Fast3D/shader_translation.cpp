@@ -138,6 +138,7 @@ glslang::TShader create_shader(EShLanguage type, std::filesystem::path shaderPat
     shaderGlslang.setEnvInput(glslang::EShSourceGlsl, type, glslang::EShClientVulkan, 100);
     shaderGlslang.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
     shaderGlslang.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
+    shaderGlslang.setTextureSamplerTransformMode(EShTextureSamplerTransformMode::EShTexSampTransKeep);
 
     return shaderGlslang;
 }
@@ -380,7 +381,20 @@ void generate_shader_from_string(LLGL::ShaderDescriptor& vertShaderDesc, LLGL::S
         spirv_cross::CompilerGLSL glslFrag(spirvSourceFrag);
         glslFrag.set_common_options(scoptions);
         glslFrag.build_combined_image_samplers();
-        auto remap = glslFrag.get_combined_image_samplers();
+        auto &samplers = glslFrag.get_combined_image_samplers();
+        for (const auto& sampler : samplers) {
+            glslFrag.set_name(sampler.combined_id, glslFrag.get_name(sampler.image_id));
+
+            if (glslFrag.has_decoration(sampler.image_id, spv::DecorationDescriptorSet)) {
+                uint32_t set = glslFrag.get_decoration(sampler.image_id, spv::DecorationDescriptorSet);
+                glslFrag.set_decoration(sampler.combined_id, spv::DecorationDescriptorSet, set);
+            }
+
+            if (glslFrag.has_decoration(sampler.image_id, spv::DecorationBinding)) {
+                uint32_t binding = glslFrag.get_decoration(sampler.image_id, spv::DecorationBinding);
+                glslFrag.set_decoration(sampler.combined_id, spv::DecorationBinding, binding);
+            }
+        }
         fragShader = glslFrag.compile();
         fragShaderDesc = { LLGL::ShaderType::Fragment, std::get<std::string>(fragShader).c_str() };
         fragShaderDesc.sourceType = LLGL::ShaderSourceType::CodeString;

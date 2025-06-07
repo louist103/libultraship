@@ -313,7 +313,7 @@ prism::ContextTypes* get_binding_index(prism::ContextItems* items, prism::Contex
         for (const auto& bind : layoutDesc->bindings) {
             if (bind.stageFlags == stage_flags && bind.type == LLGL::ResourceType::Texture && bind.name == std::get<std::string>(*binding_type)) {
                     layoutDesc->combinedTextureSamplers.push_back(
-                        LLGL::CombinedTextureSamplerDescriptor{ bind.name, bind.name, name_literal, index });
+                        LLGL::CombinedTextureSamplerDescriptor{ bind.name, bind.name, name_literal, bind.slot });
                 break;
             }
             index++;
