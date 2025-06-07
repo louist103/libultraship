@@ -238,8 +238,6 @@ target_link_libraries(libultraship PUBLIC prism)
 
 target_compile_definitions(libultraship PRIVATE ${GBI_UCODE})
 
-target_compile_definitions(libultraship PRIVATE LLGL_BUILD_RENDERER_VULKAN=1)
-
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         WIN32

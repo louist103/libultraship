@@ -12,6 +12,7 @@
 
 #include "gfx_rendering_api.h"
 #include "../interpreter.h"
+#include "gfx_window_manager_api.h"
 
 #include <imgui_impl_sdl2.h>
 #include <simd/simd.h>
@@ -138,7 +139,7 @@ class GfxRenderingAPIMetal final : public GfxRenderingAPI {
     void SetScissor(int x, int y, int width, int height) override;
     void SetUseAlpha(bool useAlpha) override;
     void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) override;
-    void Init(Ship::GuiWindowInitData& data) override;
+    void Init() override;
     void OnResize() override;
     void StartFrame() override;
     void EndFrame() override;

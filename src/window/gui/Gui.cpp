@@ -183,7 +183,7 @@ void Gui::ImGuiWMInit() {
         case WindowBackend::FAST3D_SDL_METAL:
             SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
             SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-            ImGui_ImplSDL2_InitForMetal(static_cast<SDL_Window*>(mImpl.Metal.Window));
+            ImGui_ImplSDL2_InitForMetal(static_cast<SDL_Window*>(mImpl->Metal.Window));
             break;
 #endif
 #if defined(ENABLE_DX11) || defined(ENABLE_DX12)
@@ -247,7 +247,7 @@ void Gui::ImGuiBackendInit() {
             Fast::GfxRenderingAPIMetal* api =
                 (Fast::GfxRenderingAPIMetal*)mInterpreter.lock()->GetCurrentRenderingAPI();
 
-            api->MetalInit(mImpl.Metal.Renderer);
+            api->MetalInit(mImpl->Metal.Renderer);
             break;
         }
 #endif
