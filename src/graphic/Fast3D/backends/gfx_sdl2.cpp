@@ -707,8 +707,6 @@ void GfxWindowBackendSDL2::SwapBuffersBegin() {
     }
 
     SyncFramerateWithTime();
-    //! TODO: Implement this
-    // SDL_GL_SwapWindow(wnd);
 }
 
 void GfxWindowBackendSDL2::SwapBuffersEnd() {

@@ -2266,22 +2266,22 @@ void Interpreter::GfxDrawRectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_
 
     ul->x = ulxf;
     ul->y = ulyf;
-    ul->z = -1.0f;
+    ul->z = 0.0f;
     ul->w = 1.0f;
 
     ll->x = ulxf;
     ll->y = lryf;
-    ll->z = -1.0f;
+    ll->z = 0.0f;
     ll->w = 1.0f;
 
     lr->x = lrxf;
     lr->y = lryf;
-    lr->z = -1.0f;
+    lr->z = 0.0f;
     lr->w = 1.0f;
 
     ur->x = lrxf;
     ur->y = ulyf;
-    ur->z = -1.0f;
+    ur->z = 0.0f;
     ur->w = 1.0f;
 
     // The coordinates for texture rectangle shall bypass the viewport setting

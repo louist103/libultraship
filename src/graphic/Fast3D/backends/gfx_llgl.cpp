@@ -308,6 +308,17 @@ prism::ContextTypes* get_binding_index(prism::ContextItems* items, prism::Contex
     layoutDesc->bindings.push_back(LLGL::BindingDescriptor{
         name_literal, llgl_get_resource_type(std::get<std::string>(*resource_type)),
         (long)llgl_get_binding_type(std::get<std::string>(*binding_type)), stage_flags, bind });
+    if (std::get<std::string>(*resource_type) == "Sampler") {
+        int index = 0;
+        for (const auto& bind : layoutDesc->bindings) {
+            if (bind.stageFlags == stage_flags && bind.type == LLGL::ResourceType::Texture && bind.name == std::get<std::string>(*binding_type)) {
+                    layoutDesc->combinedTextureSamplers.push_back(
+                        LLGL::CombinedTextureSamplerDescriptor{ bind.name, bind.name, name_literal, index });
+                break;
+            }
+            index++;
+        }
+    }
     return new prism::ContextTypes{ bind };
 }
 
@@ -380,14 +391,7 @@ std::string GfxRenderingAPILLGL::llgl_build_fs_shader(const CCFeatures& cc_featu
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    for (const auto& bind : layoutDesc.bindings) {
-        if (bind.stageFlags & LLGL::StageFlags::FragmentStage) {
-            if (bind.type == LLGL::ResourceType::Texture) {
-                layoutDesc.combinedTextureSamplers.push_back(
-                    LLGL::CombinedTextureSamplerDescriptor{ bind.name, bind.name, "samplerState", bind.slot });
-            }
-        }
-    }
+    
     SPDLOG_INFO("=========== FRAGMENT SHADER ============");
     // print line per line with number
     size_t line_num = 0;
@@ -538,10 +542,7 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
     return pipeline;
 }
 
-LLGL::PipelineState* duplicate_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL::SwapChain* llgl_swapChain,
-                                        LLGL::VertexFormat& vertexFormat, std::string vertShaderSource,
-                                        std::string fragShaderSource, LLGL::GraphicsPipelineDescriptor& pipelineDesc,
-                                        LLGL::PipelineLayout* pipelineLayout = nullptr) {
+LLGL::PipelineState* duplicate_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL::GraphicsPipelineDescriptor& pipelineDesc) {
     // Create graphics pipeline
     LLGL::PipelineCache* pipelineCache = nullptr;
 
@@ -583,13 +584,12 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
             } else {
                 pipelineDesc.depth.writeEnabled = write_depth_bool;
                 pipelineDesc.depth.testEnabled = depth_bool;
-                if (depth_bool) {
+                if (!depth_bool) {
                     pipelineDesc.depth.compareOp = LLGL::CompareOp::AlwaysPass;
                 } else {
                     pipelineDesc.depth.compareOp = LLGL::CompareOp::Less;
                 }
-                auto pipeline = duplicate_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf,
-                                                   pipelineDesc, pipeline_layout);
+                auto pipeline = duplicate_pipeline(llgl_renderer, pipelineDesc);
                 prg->pipeline[depth_bool][write_depth_bool] = pipeline;
             }
         }
@@ -600,18 +600,28 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
         // harcode for now
         if (binding.name.compare("uTex0") == 0) {
             prg->bindingTexture[0] = i;
+        } else if (binding.name.compare("uTexSampl0") == 0) {
+            prg->bindingTextureSampl[0] = i;
         } else if (binding.name.compare("uTex1") == 0) {
             prg->bindingTexture[1] = i;
+        } else if (binding.name.compare("uTexSampl1") == 0) {
+            prg->bindingTextureSampl[1] = i;
         } else if (binding.name.compare("uTexMask0") == 0) {
             prg->bindingMask[0] = i;
+        } else if (binding.name.compare("uTexMaskSampl0") == 0) {
+            prg->bindingMaskSampl[0] = i;
         } else if (binding.name.compare("uTexMask1") == 0) {
             prg->bindingMask[1] = i;
+        } else if (binding.name.compare("uTexMaskSampl1") == 0) {
+            prg->bindingMaskSampl[1] = i;
         } else if (binding.name.compare("uTexBlend0") == 0) {
             prg->bindingBlend[0] = i;
+        } else if (binding.name.compare("uTexBlendSampl0") == 0) {
+            prg->bindingBlendSampl[0] = i;
         } else if (binding.name.compare("uTexBlend1") == 0) {
             prg->bindingBlend[1] = i;
-        } else if (binding.name.compare("samplerState") == 0) {
-            prg->samplerStateBinding = i;
+        } else if (binding.name.compare("uTexBlendSampl1") == 0) {
+            prg->bindingBlendSampl[1] = i;
         } else if (binding.name.compare("frame_count") == 0) {
             prg->frameCountBinding = i;
         } else if (binding.name.compare("noise_scale") == 0) {
@@ -672,7 +682,30 @@ void Fast::GfxRenderingAPILLGL::UploadTexture(const uint8_t* rgba32_buf, uint32_
     textures[current_texture_ids[current_tile]] = llgl_renderer->CreateTexture(texDesc, &imageView);
 }
 
-void Fast::GfxRenderingAPILLGL::SetSamplerParameters(int sampler, bool linear_filter, uint32_t cms, uint32_t cmt) {
+static LLGL::SamplerAddressMode gfx_cm_to_llgl(uint32_t val) {
+    // TODO: handle G_TX_MIRROR | G_TX_CLAMP
+    if (val & G_TX_CLAMP) {
+        return LLGL::SamplerAddressMode::Clamp;
+    }
+    return (val & G_TX_MIRROR) ? LLGL::SamplerAddressMode::Mirror : LLGL::SamplerAddressMode::Border;
+}
+
+void Fast::GfxRenderingAPILLGL::SetSamplerParameters(int tile, bool linear_filter, uint32_t cms, uint32_t cmt) {
+    if (samplers.contains({ linear_filter, cms, cmt })) {
+        current_sampler[tile] = samplers[{ linear_filter, cms, cmt }];
+        return;
+    }
+
+    LLGL::SamplerDescriptor samplerDesc;
+    samplerDesc.addressModeU = gfx_cm_to_llgl(cms);
+    samplerDesc.addressModeV = gfx_cm_to_llgl(cmt);
+    samplerDesc.addressModeW = LLGL::SamplerAddressMode::Clamp; // Not used in 2D textures
+    samplerDesc.minFilter = linear_filter ? LLGL::SamplerFilter::Linear : LLGL::SamplerFilter::Nearest;
+    samplerDesc.magFilter = linear_filter ? LLGL::SamplerFilter::Linear : LLGL::SamplerFilter::Nearest;
+
+    LLGL::Sampler* sampler = llgl_renderer->CreateSampler(samplerDesc);
+    samplers[{ linear_filter, cms, cmt }] = sampler;
+    current_sampler[tile] = sampler;
 }
 
 void Fast::GfxRenderingAPILLGL::SetDepthTestAndMask(bool depth_test, bool z_upd) {
@@ -708,20 +741,6 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
 
     LLGL::Buffer* vertexBuffer = llgl_renderer->CreateBuffer(vboDesc, buf_vbo);
 
-    LLGL::BufferDescriptor bufferDescFrameCount;
-    {
-        bufferDescFrameCount.bindFlags = LLGL::BindFlags::ConstantBuffer;
-        bufferDescFrameCount.size = sizeof(int);
-    }
-    LLGL::Buffer* frameCountBuffer = llgl_renderer->CreateBuffer(bufferDescFrameCount, &frame_count);
-
-    LLGL::BufferDescriptor bufferDescNoiseScale;
-    {
-        bufferDescNoiseScale.bindFlags = LLGL::BindFlags::ConstantBuffer;
-        bufferDescNoiseScale.size = sizeof(float);
-    }
-    LLGL::Buffer* noiseScaleBuffer = llgl_renderer->CreateBuffer(bufferDescNoiseScale, &noise_scale);
-
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
     llgl_cmdBuffer->SetPipelineState(
         *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1]);
@@ -729,39 +748,29 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
 
-    bool add_sampler = false;
-
     for (int i = 0; i < 2; i++) {
 
         if (mCurrentShaderProgram->bindingTexture[i].has_value() && textures[current_texture_ids[i]] != nullptr) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i], *textures[current_texture_ids[i]]);
-            if (!add_sampler) {
-                // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
-                add_sampler = true;
-            }
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTextureSampl[i],
+                                       *current_sampler[i]);
         }
 
         if (mCurrentShaderProgram->bindingMask[i].has_value() && textures[current_texture_ids[2 + i]] != nullptr) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i], *textures[current_texture_ids[2 + i]]);
-            if (!add_sampler) {
-                // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
-                add_sampler = true;
-            }
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMaskSampl[i],
+                                       *current_sampler[2 + i]);
         }
 
         if (mCurrentShaderProgram->bindingBlend[i].has_value() && textures[current_texture_ids[4 + i]] != nullptr) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i], *textures[current_texture_ids[4 + i]]);
-            if (!add_sampler) {
-                // llgl_cmdBuffer->SetResource(mCurrentShaderProgram->samplerStateBinding, *sampler);
-                add_sampler = true;
-            }
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlendSampl[i],
+                                       *current_sampler[4 + i]);
         }
     }
 
     llgl_cmdBuffer->Draw(3 * buf_vbo_num_tris, 0);
     garbage_collection_buffers.push_back(vertexBuffer);
-    garbage_collection_buffers.push_back(frameCountBuffer);
-    garbage_collection_buffers.push_back(noiseScaleBuffer);
 }
 
 void Fast::GfxRenderingAPILLGL::Init() {
@@ -787,7 +796,37 @@ void Fast::GfxRenderingAPILLGL::Init() {
 
     llgl_cmdBuffer = llgl_renderer->CreateCommandBuffer(LLGL::CommandBufferFlags::ImmediateSubmit);
     framebuffers.push_back({ llgl_swapChain, 0 });
-    sampler = llgl_renderer->CreateSampler(LLGL::SamplerDescriptor{});
+    LLGL::BufferDescriptor bufferDescFrameCount;
+    {
+        bufferDescFrameCount.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        bufferDescFrameCount.size = sizeof(int);
+    }
+    frameCountBuffer = llgl_renderer->CreateBuffer(bufferDescFrameCount, &frame_count);
+
+    LLGL::BufferDescriptor bufferDescNoiseScale;
+    {
+        bufferDescNoiseScale.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        bufferDescNoiseScale.size = sizeof(float);
+    }
+    noiseScaleBuffer = llgl_renderer->CreateBuffer(bufferDescNoiseScale, &noise_scale);
+
+    bool linear_filter = true;
+    int cms = 0;
+    int cmt = 0;
+
+    LLGL::SamplerDescriptor samplerDesc;
+    samplerDesc.addressModeU = gfx_cm_to_llgl(cms);
+    samplerDesc.addressModeV = gfx_cm_to_llgl(cmt);
+    samplerDesc.addressModeW = LLGL::SamplerAddressMode::Clamp; // Not used in 2D textures
+    samplerDesc.minFilter = linear_filter ? LLGL::SamplerFilter::Linear : LLGL::SamplerFilter::Nearest;
+    samplerDesc.magFilter = linear_filter ? LLGL::SamplerFilter::Linear : LLGL::SamplerFilter::Nearest;
+
+    LLGL::Sampler* sampler = llgl_renderer->CreateSampler(samplerDesc);
+    samplers[{ linear_filter, cms, cmt }] = sampler;
+    for (int tile = 0; tile < 6; tile++) {
+        current_texture_ids[tile] = 0;
+        current_sampler[tile] = sampler;
+    }
 }
 
 void Fast::GfxRenderingAPILLGL::OnResize(void) {

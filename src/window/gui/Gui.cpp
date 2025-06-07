@@ -298,9 +298,10 @@ bool Gui::SupportsViewports() {
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
         case WindowBackend::FAST3D_DXGI_DX11:
             return true;
-        case WindowBackend::FAST3D_SDL_OPENGL:
         case WindowBackend::FAST3D_SDL_METAL:
             return true;
+        case WindowBackend::FAST3D_SDL_OPENGL:
+            return false;
         default:
             return false;
     }

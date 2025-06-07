@@ -1,7 +1,6 @@
 @prism(type='fragment', name='Fast3D Fragment Shader', version='1.0.0', description='Ported shader to prism', author='Emill & Prism Team')
 
 #version 450 core
-#extension GL_EXT_samplerless_texture_functions : require
 
 // layout(binding = {get_binding_index("samplerState", "Sampler", "")}) uniform sampler samplerState;
 
@@ -14,8 +13,11 @@ layout(std140, binding = @{get_binding_index("noise_scale", "Buffer", "ConstantB
 
 @for(i in 0..2)
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTex@{i};
+    @if(o_textures[i]) layout(binding = @{get_binding_index("uTexSampl" + to_string(i), "Sampler", "uTex" + to_string(i))}) uniform sampler uTexSampl@{i};
     @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMask" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTexMask@{i};
+    @if(o_masks[i]) layout(binding = @{get_binding_index("uTexMaskSampl" + to_string(i), "Sampler", "uTexMask" + to_string(i))}) uniform sampler uTexMaskSampl@{i};
     @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlend" + to_string(i), "Texture", "Sampled")}) uniform sampler2D uTexBlend@{i};
+    @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlendSampl" + to_string(i), "Sampler", "uTexBlend" + to_string(i))}) uniform sampler uTexBlendSampl@{i};
 @end
 
 @for(i in 0..2)

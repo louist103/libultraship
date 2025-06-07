@@ -5,21 +5,35 @@
 #include "graphic/Fast3D/interpreter.h"
 #include <LLGL/LLGL.h>
 #include "LLGL/Utils/VertexFormat.h"
+#include <functional>
+#include <cstddef>
 
 extern LLGL::RenderSystemPtr llgl_renderer;
 extern LLGL::SwapChain* llgl_swapChain;
 extern LLGL::CommandBuffer* llgl_cmdBuffer;
-
 namespace Fast {
+
+// Hash function for std::tuple<bool, int, int>
+struct tuple_bool_int_int_hash {
+    std::size_t operator()(const std::tuple<bool, int, int>& t) const {
+        std::size_t h1 = std::hash<bool>{}(std::get<0>(t));
+        std::size_t h2 = std::hash<int>{}(std::get<1>(t));
+        std::size_t h3 = std::hash<int>{}(std::get<2>(t));
+        // Combine hashes
+        return h1 ^ (h2 << 1) ^ (h3 << 4);
+    }
+};
 
 struct ShaderProgramLLGL {
     int numInputs;
-    int samplerStateBinding;
     int frameCountBinding;
     int noiseScaleBinding;
     std::optional<int> bindingTexture[2];
+    std::optional<int> bindingTextureSampl[2];
     std::optional<int> bindingMask[2];
+    std::optional<int> bindingMaskSampl[2];
     std::optional<int> bindingBlend[2];
+    std::optional<int> bindingBlendSampl[2];
     LLGL::VertexFormat vertexFormat;
     LLGL::PipelineState* pipeline[2][2]; // [depth disabled][zmode decal]
 };
@@ -73,7 +87,8 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
   private:
     int current_tile;
     uint32_t current_texture_ids[6] = { 0, 0, 0, 0, 0, 0 };
-    LLGL::Sampler* sampler;
+    LLGL::Sampler* current_sampler[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    std::unordered_map<std::tuple<bool, int, int>, LLGL::Sampler*, tuple_bool_int_int_hash> samplers = {};
     std::vector<LLGL::Texture*> textures;
     std::vector<std::pair<LLGL::RenderTarget*, int>> framebuffers;
     bool srgb_mode = false;
@@ -88,6 +103,8 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
     std::vector<LLGL::Buffer*> garbage_collection_buffers;
     int frame_count = 0;
     float noise_scale = 0.0f;
+    LLGL::Buffer* frameCountBuffer;
+    LLGL::Buffer* noiseScaleBuffer;
 };
 } // namespace Fast
 
