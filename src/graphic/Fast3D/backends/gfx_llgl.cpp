@@ -805,6 +805,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
     swapChainDesc.resolution = { 800, 400 };
     swapChainDesc.resizable = true;
     llgl_swapChain = llgl_renderer->CreateSwapChain(swapChainDesc, mWindowBackend->mInitData.LLGL.Window);
+    llgl_swapChain->SetVsyncInterval(0);
 
     llgl_cmdBuffer = llgl_renderer->CreateCommandBuffer(LLGL::CommandBufferFlags::ImmediateSubmit);
     framebuffers.push_back({ llgl_swapChain, 0 });
