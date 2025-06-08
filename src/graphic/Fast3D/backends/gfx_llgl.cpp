@@ -967,7 +967,7 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
     // probably wrong
     const LLGL::TextureLocation location({ dstX0, dstY0, 0 });
     if (fb_src_id==0) {
-        const LLGL::TextureRegion dstRegion({ 0, 0, 0 }, { dstX1 - dstX0, dstY1 - dstY0, 0 });
+        const LLGL::TextureRegion dstRegion({ 0, 0, 0 }, { static_cast<uint32_t>(dstX1 - dstX0), static_cast<uint32_t>(dstY1 - dstY0), 0 });
         llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_dst_id].second].first, dstRegion, { 0, 0 });
     } else {
         llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second].first, location,
