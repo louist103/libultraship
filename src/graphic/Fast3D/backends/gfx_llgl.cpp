@@ -871,8 +871,7 @@ void Fast::GfxRenderingAPILLGL::OnResize(void) {
 
 void Fast::GfxRenderingAPILLGL::StartFrame(void) {
     llgl_cmdBuffer->Begin();
-    llgl_cmdBuffer->BeginRenderPass(*llgl_swapChain);
-    current_framebuffer_id = 0;
+    current_framebuffer_id = -1;
 }
 
 void Fast::GfxRenderingAPILLGL::EndFrame(void) {
@@ -977,6 +976,7 @@ void Fast::GfxRenderingAPILLGL::StartDrawToFramebuffer(int fb_id, float noise_sc
         // Already drawing to the same framebuffer, no need to reset
         return;
     }
+    current_framebuffer_id = fb_id;
     llgl_cmdBuffer->EndRenderPass();
     if (fb_id == 0) {
         llgl_cmdBuffer->BeginRenderPass(*llgl_swapChain);
@@ -996,7 +996,7 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
     }
     // probably wrong
     const LLGL::TextureLocation location({ dstX0, dstY0, 0 });
-    if (fb_src_id==0) {
+    if (fb_src_id==current_framebuffer_id) {
         const LLGL::TextureRegion dstRegion({ 0, 0, 0 }, { static_cast<uint32_t>(dstX1 - dstX0), static_cast<uint32_t>(dstY1 - dstY0), 0 });
         llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_dst_id].second].first, dstRegion, { 0, 0 });
     } else {
