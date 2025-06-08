@@ -736,10 +736,10 @@ void Fast::GfxRenderingAPILLGL::SetViewport(int x, int y, int width, int height)
         scale_x = static_cast<float>(render_width) / resolution.width;
         scale_y = static_cast<float>(render_height) / resolution.height;
     }
-    x = static_cast<int>(x * scale_x);
-    y = static_cast<int>(y * scale_y);
-    width = static_cast<int>(width * scale_x);
-    height = static_cast<int>(height * scale_y);
+    // x = static_cast<int>(x * scale_x);
+    // y = static_cast<int>(y * scale_y);
+    // width = static_cast<int>(width * scale_x);
+    // height = static_cast<int>(height * scale_y);
     int y_inverted = resolution.height - y - height;
     int height_inverted = resolution.height - y_inverted;
     llgl_cmdBuffer->SetViewport(LLGL::Viewport(x, y_inverted, width, height_inverted));
@@ -756,10 +756,10 @@ void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) 
         scale_x = static_cast<float>(render_width) / resolution.width;
         scale_y = static_cast<float>(render_height) / resolution.height;
     }
-    x = static_cast<int>(x * scale_x);
-    y = static_cast<int>(y * scale_y);
-    width = static_cast<int>(width * scale_x);
-    height = static_cast<int>(height * scale_y);
+    // x = static_cast<int>(x * scale_x);
+    // y = static_cast<int>(y * scale_y);
+    // width = static_cast<int>(width * scale_x);
+    // height = static_cast<int>(height * scale_y);
     int y_inverted = resolution.height - y - height;
     int height_inverted = resolution.height - y_inverted;
     llgl_cmdBuffer->SetScissor(LLGL::Scissor(x, y_inverted, width, height_inverted));
