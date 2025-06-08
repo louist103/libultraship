@@ -104,6 +104,7 @@ class GfxRenderingAPILLGL : public GfxRenderingAPI {
     float noise_scale = 0.0f;
     LLGL::Buffer* frameCountBuffer;
     LLGL::Buffer* noiseScaleBuffer;
+    int current_framebuffer_id = 0;
 };
 } // namespace Fast
 

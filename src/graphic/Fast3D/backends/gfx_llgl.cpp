@@ -872,6 +872,7 @@ void Fast::GfxRenderingAPILLGL::OnResize(void) {
 void Fast::GfxRenderingAPILLGL::StartFrame(void) {
     llgl_cmdBuffer->Begin();
     llgl_cmdBuffer->BeginRenderPass(*llgl_swapChain);
+    current_framebuffer_id = 0;
 }
 
 void Fast::GfxRenderingAPILLGL::EndFrame(void) {
@@ -972,6 +973,10 @@ void Fast::GfxRenderingAPILLGL::StartDrawToFramebuffer(int fb_id, float noise_sc
         return;
     }
     this->noise_scale = noise_scale;
+    if (fb_id == current_framebuffer_id) {
+        // Already drawing to the same framebuffer, no need to reset
+        return;
+    }
     llgl_cmdBuffer->EndRenderPass();
     if (fb_id == 0) {
         llgl_cmdBuffer->BeginRenderPass(*llgl_swapChain);
