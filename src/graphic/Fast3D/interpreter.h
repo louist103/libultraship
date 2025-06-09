@@ -126,7 +126,6 @@ union Gfx;
 
 namespace Fast {
 
-class GfxRenderingAPILLGL;
 class GfxWindowBackend;
 
 constexpr size_t MAX_SEGMENT_POINTERS = 16;

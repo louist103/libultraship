@@ -105,6 +105,7 @@ class GfxRenderingAPILLGL {
     LLGL::Buffer* frameCountBuffer;
     LLGL::Buffer* noiseScaleBuffer;
     int current_framebuffer_id = 0;
+    GfxWindowBackend* mWindowBackend = nullptr;
 };
 } // namespace Fast
 

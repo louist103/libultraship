@@ -28,6 +28,7 @@
 #include "lus_gbi.h"
 #include "backends/gfx_window_manager_api.h"
 #include "backends/gfx_rendering_api.h"
+#include "backends/gfx_llgl.h"
 
 #include "window/gui/Gui.h"
 #include "resource/ResourceManager.h"
