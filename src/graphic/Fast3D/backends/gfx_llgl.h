@@ -96,7 +96,7 @@ class GfxRenderingAPILLGL {
     std::string llgl_build_fs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc);
     std::string llgl_build_vs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc,
                                      LLGL::VertexFormat& vertexFormat);
-    std::map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL> mShaderProgramPool;
+    std::unordered_map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL> mShaderProgramPool;
     bool disable_depth = true;
     bool disable_write_depth = true;
     struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;

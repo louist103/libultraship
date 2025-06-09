@@ -658,6 +658,13 @@ void Fast::GfxRenderingAPILLGL::ShaderGetInfo(struct ShaderProgram* prg, uint8_t
 }
 
 uint32_t Fast::GfxRenderingAPILLGL::NewTexture(void) {
+    for (size_t i = 0; i < textures.size(); i++) {
+        if (textures[i].first == nullptr) {
+            // Reuse the texture slot
+            textures[i].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
+            return (uint32_t)i;
+        }
+    }
     textures.resize(textures.size() + 1);
     textures[textures.size() - 1].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
     return (uint32_t)(textures.size() - 1);
