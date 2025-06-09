@@ -284,48 +284,38 @@ void Config::SetCurrentAudioBackend(AudioBackend backend) {
     }
 }
 
-WindowBackend Config::GetWindowBackend() {
-    WindowBackend backend;
+int Config::GetRendererID() {
+    LLGL::RendererID backend;
     auto backendId = GetInt("Window.Backend.Id", -1);
-    if (Context::GetInstance()->GetWindow()->IsAvailableWindowBackend(backendId)) {
-        return static_cast<WindowBackend>(backendId);
+    if (Context::GetInstance()->GetWindow()->IsAvailableRenderer(backendId)) {
+        return backendId;
     }
 
-    return WindowBackend::FAST3D_SDL_LLGL;
-
-    SPDLOG_TRACE(
-        "Could not find available WindowBackend matching id from config file ({}). Returning default WindowBackend.",
-        backendId);
-#ifdef ENABLE_DX11
-    return WindowBackend::FAST3D_DXGI_DX11;
-#endif
-#ifdef __APPLE__
-    if (Metal_IsSupported()) {
-        return WindowBackend::FAST3D_SDL_METAL;
-    }
-#endif
-    return WindowBackend::FAST3D_SDL_OPENGL;
+    return LLGL::RendererID::OpenGL;
 }
 
-void Config::SetWindowBackend(WindowBackend backend) {
-    SetInt("Window.Backend.Id", static_cast<int>(backend));
-
-    switch (backend) {
-        case WindowBackend::FAST3D_DXGI_DX11:
-            SetString("Window.Backend.Name", "DirectX 11");
-            break;
-        case WindowBackend::FAST3D_SDL_OPENGL:
-            SetString("Window.Backend.Name", "OpenGL");
-            break;
-        case WindowBackend::FAST3D_SDL_METAL:
-            SetString("Window.Backend.Name", "Metal");
-            break;
-        case WindowBackend::FAST3D_SDL_LLGL:
-            SetString("Window.Backend.Name", "LLGL");
-            break;
+static std::string renderer_to_string(int rendererId) {
+    switch (rendererId) {
+        case LLGL::RendererID::OpenGL:
+            return "OpenGL";
+        case LLGL::RendererID::OpenGLES:
+            return "OpenGLES";
+        case LLGL::RendererID::WebGL:
+            return "WebGL";
+        case LLGL::RendererID::Direct3D11:
+            return "Direct3D11";
+        case LLGL::RendererID::Vulkan:
+            return "Vulkan";
+        case LLGL::RendererID::Metal:
+            return "Metal";
         default:
-            SetString("Window.Backend.Name", "");
+            return "Unknown";
     }
+}
+
+void Config::SetRenderer(int rendererId) {
+    SetInt("Window.Backend.Id", rendererId);
+    SetString("Window.Backend.Name", renderer_to_string(rendererId));
 }
 
 bool Config::RegisterVersionUpdater(std::shared_ptr<ConfigVersionUpdater> versionUpdater) {

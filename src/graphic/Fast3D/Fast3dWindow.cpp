@@ -7,10 +7,6 @@
 #include "graphic/Fast3D/interpreter.h"
 #include "graphic/Fast3D/backends/gfx_sdl.h"
 #include "graphic/Fast3D/backends/gfx_dxgi.h"
-#include "graphic/Fast3D/backends/gfx_opengl.h"
-#include "graphic/Fast3D/backends/gfx_metal.h"
-#include "graphic/Fast3D/backends/gfx_direct3d_common.h"
-#include "graphic/Fast3D/backends/gfx_direct3d11.h"
 #include "backends/gfx_window_manager_api.h"
 #include "graphic/Fast3D/backends/gfx_llgl.h"
 
@@ -26,16 +22,21 @@ Fast3dWindow::Fast3dWindow(std::shared_ptr<Ship::Gui> gui) : Ship::Window(gui) {
     mInterpreter = std::make_shared<Interpreter>();
     GfxSetInstance(mInterpreter);
 
-#ifdef _WIN32
-    AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_DXGI_DX11);
+#if LLGL_BUILD_RENDERER_OPENGL
+    AddAvailableWindowBackend(LLGL::RendererID::OpenGL);
 #endif
-#ifdef __APPLE__
-    if (Metal_IsSupported()) {
-        AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_METAL);
-    }
+#if LLGL_BUILD_RENDERER_VULKAN
+    AddAvailableWindowBackend(LLGL::RendererID::Vulkan);
 #endif
-    AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_LLGL);
-    // AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_OPENGL);
+#if LLGL_BUILD_RENDERER_METAL
+    AddAvailableWindowBackend(LLGL::RendererID::Metal);
+#endif
+#if LLGL_BUILD_RENDERER_DIRECT3D11
+    AddAvailableWindowBackend(LLGL::RendererID::Direct3D11);
+#endif
+#if LLGL_BUILD_RENDERER_DIRECT3D12
+    AddAvailableWindowBackend(LLGL::RendererID::Direct3D12);
+#endif
 }
 
 Fast3dWindow::Fast3dWindow(std::vector<std::shared_ptr<Ship::GuiWindow>> guiWindows)
@@ -121,35 +122,10 @@ uint16_t Fast3dWindow::GetPixelDepth(float x, float y) {
 }
 
 void Fast3dWindow::InitWindowManager() {
-    SetWindowBackend(Ship::Context::GetInstance()->GetConfig()->GetWindowBackend());
+    SetRenderer(Ship::Context::GetInstance()->GetConfig()->GetRendererID());
 
-    switch (GetWindowBackend()) {
-#ifdef ENABLE_DX11
-        case Ship::WindowBackend::FAST3D_DXGI_DX11:
-            mWindowManagerApi = new GfxWindowBackendDXGI();
-            mRenderingApi = new GfxRenderingAPIDX11(static_cast<GfxWindowBackendDXGI*>(mWindowManagerApi));
-            break;
-#endif
-#ifdef ENABLE_OPENGL
-        case Ship::WindowBackend::FAST3D_SDL_OPENGL:
-            mWindowManagerApi = new GfxWindowBackendSDL2();
-            mRenderingApi = new GfxRenderingAPIOGL(mWindowManagerApi);
-            break;
-#endif
-#ifdef __APPLE__
-        case Ship::WindowBackend::FAST3D_SDL_METAL:
-            mRenderingApi = new GfxRenderingAPIMetal();
-            mWindowManagerApi = new GfxWindowBackendSDL2();
-            break;
-#endif
-        case Ship::WindowBackend::FAST3D_SDL_LLGL:
-            mWindowManagerApi = new GfxWindowBackendSDL2();
-            mRenderingApi = new GfxRenderingAPILLGL(mWindowManagerApi);
-            break;
-        default:
-            SPDLOG_ERROR("Could not load the correct rendering backend");
-            break;
-    }
+    mWindowManagerApi = new GfxWindowBackendSDL2();
+    mRenderingApi = new GfxRenderingAPILLGL(mWindowManagerApi);
 }
 
 void Fast3dWindow::SetTextureFilter(FilteringMode filteringMode) {
@@ -291,11 +267,7 @@ bool Fast3dWindow::SupportsWindowedFullscreen() {
     return false;
 #endif
 
-    if (GetWindowBackend() == Ship::WindowBackend::FAST3D_SDL_OPENGL) {
-        return true;
-    }
-
-    return false;
+    return true; // TODO: try each backend to confirm
 }
 
 bool Fast3dWindow::CanDisableVerticalSync() {

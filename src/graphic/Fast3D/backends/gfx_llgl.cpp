@@ -311,9 +311,10 @@ prism::ContextTypes* get_binding_index(prism::ContextItems* items, prism::Contex
     if (std::get<std::string>(*resource_type) == "Sampler") {
         int index = 0;
         for (const auto& bind : layoutDesc->bindings) {
-            if (bind.stageFlags == stage_flags && bind.type == LLGL::ResourceType::Texture && bind.name == std::get<std::string>(*binding_type)) {
-                    layoutDesc->combinedTextureSamplers.push_back(
-                        LLGL::CombinedTextureSamplerDescriptor{ bind.name, bind.name, name_literal, bind.slot });
+            if (bind.stageFlags == stage_flags && bind.type == LLGL::ResourceType::Texture &&
+                bind.name == std::get<std::string>(*binding_type)) {
+                layoutDesc->combinedTextureSamplers.push_back(
+                    LLGL::CombinedTextureSamplerDescriptor{ bind.name, bind.name, name_literal, bind.slot });
                 break;
             }
             index++;
@@ -379,8 +380,8 @@ std::string GfxRenderingAPILLGL::llgl_build_fs_shader(const CCFeatures& cc_featu
     init->Type = (uint32_t)Ship::ResourceType::Shader;
     init->ByteOrder = Ship::Endianness::Native;
     init->Format = RESOURCE_FORMAT_BINARY;
-    auto res = static_pointer_cast<Ship::Shader>(Ship::Context::GetInstance()->GetResourceManager()->LoadResource(
-        "shaders/opengl/default.shader.fs", true, init));
+    auto res = static_pointer_cast<Ship::Shader>(
+        Ship::Context::GetInstance()->GetResourceManager()->LoadResource("shaders/default.shader.fs", true, init));
 
     if (res == nullptr) {
         SPDLOG_ERROR("Failed to load default fragment shader, missing f3d.o2r?");
@@ -391,7 +392,7 @@ std::string GfxRenderingAPILLGL::llgl_build_fs_shader(const CCFeatures& cc_featu
     processor.load(*shader);
     processor.bind_include_loader(llgl_opengl_include_fs);
     auto result = processor.process();
-    
+
     SPDLOG_INFO("=========== FRAGMENT SHADER ============");
     // print line per line with number
     size_t line_num = 0;
@@ -432,8 +433,8 @@ std::string GfxRenderingAPILLGL::llgl_build_vs_shader(const CCFeatures& cc_featu
     init->Type = (uint32_t)Ship::ResourceType::Shader;
     init->ByteOrder = Ship::Endianness::Native;
     init->Format = RESOURCE_FORMAT_BINARY;
-    auto res = static_pointer_cast<Ship::Shader>(Ship::Context::GetInstance()->GetResourceManager()->LoadResource(
-        "shaders/opengl/default.shader.vs", true, init));
+    auto res = static_pointer_cast<Ship::Shader>(
+        Ship::Context::GetInstance()->GetResourceManager()->LoadResource("shaders/default.shader.vs", true, init));
 
     if (res == nullptr) {
         SPDLOG_ERROR("Failed to load default vertex shader, missing f3d.o2r?");
@@ -543,7 +544,8 @@ LLGL::PipelineState* create_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL:
     return pipeline;
 }
 
-LLGL::PipelineState* duplicate_pipeline(LLGL::RenderSystemPtr& llgl_renderer, LLGL::GraphicsPipelineDescriptor& pipelineDesc) {
+LLGL::PipelineState* duplicate_pipeline(LLGL::RenderSystemPtr& llgl_renderer,
+                                        LLGL::GraphicsPipelineDescriptor& pipelineDesc) {
     // Create graphics pipeline
     LLGL::PipelineCache* pipelineCache = nullptr;
 
@@ -682,7 +684,8 @@ void Fast::GfxRenderingAPILLGL::UploadTexture(const uint8_t* rgba32_buf, uint32_
     texDesc.format = LLGL::Format::RGBA8UNorm;
     texDesc.extent = { width, height, 1 };
     textures[current_texture_ids[current_tile]].first = llgl_renderer->CreateTexture(texDesc, &imageView);
-    textures[current_texture_ids[current_tile]].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
+    textures[current_texture_ids[current_tile]].second =
+        samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
 }
 
 static LLGL::SamplerAddressMode gfx_cm_to_llgl(uint32_t val) {
@@ -747,7 +750,7 @@ void Fast::GfxRenderingAPILLGL::SetViewport(int x, int y, int width, int height)
 
 void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) {
     auto resolution = llgl_swapChain->GetResolution();
-    
+
     float scale_x = 1.0f;
     float scale_y = 1.0f;
     int render_width, render_height;
@@ -788,21 +791,26 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
     for (int i = 0; i < 2; i++) {
 
         if (mCurrentShaderProgram->bindingTexture[i].has_value() && textures[current_texture_ids[i]].first != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i], *textures[current_texture_ids[i]].first);
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i],
+                                        *textures[current_texture_ids[i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTextureSampl[i],
-                                       *textures[current_texture_ids[i]].second);
+                                        *textures[current_texture_ids[i]].second);
         }
 
-        if (mCurrentShaderProgram->bindingMask[i].has_value() && textures[current_texture_ids[2 + i]].first != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i], *textures[current_texture_ids[2 + i]].first);
+        if (mCurrentShaderProgram->bindingMask[i].has_value() &&
+            textures[current_texture_ids[2 + i]].first != nullptr) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i],
+                                        *textures[current_texture_ids[2 + i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMaskSampl[i],
-                                       *textures[current_texture_ids[2 + i]].second);
+                                        *textures[current_texture_ids[2 + i]].second);
         }
 
-        if (mCurrentShaderProgram->bindingBlend[i].has_value() && textures[current_texture_ids[4 + i]].first != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i], *textures[current_texture_ids[4 + i]].first);
+        if (mCurrentShaderProgram->bindingBlend[i].has_value() &&
+            textures[current_texture_ids[4 + i]].first != nullptr) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i],
+                                        *textures[current_texture_ids[4 + i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlendSampl[i],
-                                       *textures[current_texture_ids[4 + i]].second);
+                                        *textures[current_texture_ids[4 + i]].second);
         }
     }
 
@@ -937,7 +945,8 @@ void Fast::GfxRenderingAPILLGL::UpdateFramebufferParameters(int fb_id, uint32_t 
     LLGL::Texture* texture = llgl_renderer->CreateTexture(texDesc);
 
     textures[framebuffers[fb_id].second].first = texture;
-    textures[framebuffers[fb_id].second].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
+    textures[framebuffers[fb_id].second].second =
+        samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
 
     LLGL::RenderTargetDescriptor renderTargetDesc;
     {
@@ -976,8 +985,10 @@ void Fast::GfxRenderingAPILLGL::StartDrawToFramebuffer(int fb_id, float noise_sc
         // Already drawing to the same framebuffer, no need to reset
         return;
     }
+    if (current_framebuffer_id != -1) {
+        llgl_cmdBuffer->EndRenderPass();
+    }
     current_framebuffer_id = fb_id;
-    llgl_cmdBuffer->EndRenderPass();
     if (fb_id == 0) {
         llgl_cmdBuffer->BeginRenderPass(*llgl_swapChain);
     } else {
@@ -996,13 +1007,15 @@ void Fast::GfxRenderingAPILLGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, in
     }
     // probably wrong
     const LLGL::TextureLocation location({ dstX0, dstY0, 0 });
-    if (fb_src_id==current_framebuffer_id) {
-        const LLGL::TextureRegion dstRegion({ 0, 0, 0 }, { static_cast<uint32_t>(dstX1 - dstX0), static_cast<uint32_t>(dstY1 - dstY0), 0 });
-        llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_dst_id].second].first, dstRegion, { 0, 0 });
+    if (fb_src_id == current_framebuffer_id) {
+        const LLGL::TextureRegion dstRegion(
+            { 0, 0, 0 }, { static_cast<uint32_t>(dstX1 - dstX0), static_cast<uint32_t>(dstY1 - dstY0), 0 });
+        llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_dst_id].second].first, dstRegion,
+                                                   { 0, 0 });
     } else {
         llgl_cmdBuffer->CopyTexture(*textures[framebuffers[fb_dst_id].second].first, location,
-            *textures[framebuffers[fb_src_id].second].first, location,
-            { (uint32_t)(dstX1 - dstX0), (uint32_t)(dstY1 - dstY0), 0 });
+                                    *textures[framebuffers[fb_src_id].second].first, location,
+                                    { (uint32_t)(dstX1 - dstX0), (uint32_t)(dstY1 - dstY0), 0 });
     }
 }
 
@@ -1016,7 +1029,7 @@ void Fast::GfxRenderingAPILLGL::ReadFramebufferToCPU(int fb_id, uint32_t width, 
     return;
     if (fb_id == 0) {
         llgl_cmdBuffer->CopyTextureFromFramebuffer(*textures[framebuffers[fb_id].second].first,
-                               LLGL::TextureRegion({ 0, 0, 0 }, { width, height, 1 }), { 0, 0 });
+                                                   LLGL::TextureRegion({ 0, 0, 0 }, { width, height, 1 }), { 0, 0 });
     }
     llgl_renderer->ReadTexture(*textures[framebuffers[fb_id].second].first,
                                LLGL::TextureRegion({ 0, 0, 0 }, { width, height, 1 }), rgba16_view);

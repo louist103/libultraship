@@ -15,7 +15,7 @@ namespace Ship {
 
 Window::Window(std::shared_ptr<Gui> gui) {
     mGui = gui;
-    mAvailableWindowBackends = std::make_shared<std::vector<WindowBackend>>();
+    mAvailableRenderers = std::make_shared<std::vector<int>>();
     mConfig = Context::GetInstance()->GetConfig();
 }
 
@@ -64,24 +64,18 @@ void Window::SaveWindowToConfig() {
     }
 }
 
-WindowBackend Window::GetWindowBackend() {
-    return mWindowBackend;
+int Window::GetRendererID() {
+    return mRendererID;
 }
 
-std::shared_ptr<std::vector<WindowBackend>> Window::GetAvailableWindowBackends() {
-    return mAvailableWindowBackends;
+std::shared_ptr<std::vector<int>> Window::GetAvailableRenderers() {
+    return mAvailableRenderers;
 }
 
-bool Window::IsAvailableWindowBackend(int32_t backendId) {
-    // Verify the id is a valid backend enum value
-    if (backendId < 0 || backendId >= static_cast<int>(WindowBackend::WINDOW_BACKEND_COUNT)) {
-        return false;
-    }
-
+bool Window::IsAvailableRenderer(int32_t rendererId) {
     // Verify the backend is available
-    auto backend = static_cast<WindowBackend>(backendId);
-    return std::find(mAvailableWindowBackends->begin(), mAvailableWindowBackends->end(), backend) !=
-           mAvailableWindowBackends->end();
+    return std::find(mAvailableRenderers->begin(), mAvailableRenderers->end(), rendererId) !=
+           mAvailableRenderers->end();
 }
 
 bool Window::ShouldForceCursorVisibility() {
@@ -94,13 +88,13 @@ void Window::SetForceCursorVisibility(bool visible) {
     CVarSave();
 }
 
-void Window::SetWindowBackend(WindowBackend backend) {
-    mWindowBackend = backend;
-    Context::GetInstance()->GetConfig()->SetWindowBackend(GetWindowBackend());
+void Window::SetRenderer(int renderer) {
+    mRendererID = renderer;
+    Context::GetInstance()->GetConfig()->SetRenderer(GetRendererID());
     Context::GetInstance()->GetConfig()->Save();
 }
 
-void Window::AddAvailableWindowBackend(WindowBackend backend) {
-    mAvailableWindowBackends->push_back(backend);
+void Window::AddAvailableWindowBackend(int renderer) {
+    mAvailableRenderers->push_back(renderer);
 }
 } // namespace Ship

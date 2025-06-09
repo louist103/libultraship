@@ -66,8 +66,8 @@ class Config {
 
     AudioBackend GetCurrentAudioBackend();
     void SetCurrentAudioBackend(AudioBackend backend);
-    WindowBackend GetWindowBackend();
-    void SetWindowBackend(WindowBackend backend);
+    int GetRendererID();
+    void SetRenderer(int renderer);
     AudioChannelsSetting GetCurrentAudioChannelsSetting();
 
     /**

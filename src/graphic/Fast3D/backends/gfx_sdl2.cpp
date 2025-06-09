@@ -335,113 +335,14 @@ void GfxWindowBackendSDL2::Init(const char* gameName, const char* gfxApiName, bo
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
     char title[512];
-    int len = snprintf(title, 512, "%s (%s)", "MM", "LLGL");
+    int len = sprintf(title, "%s (%s)", gameName, gfxApiName);
 
-    bool use_llgl = true;
-    if (use_llgl) {
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        mInitData.LLGL = { std::make_shared<SDLSurface>(
-                               LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight }, title,
-                               LLGL::RendererID::OpenGL, mInitData.LLGL.desc),
-                           mInitData.LLGL.desc };
-        mWnd = mInitData.LLGL.Window->wnd;
-        return;
-    }
-
-#if defined(__APPLE__)
-    bool use_opengl = strcmp(gfxApiName, "OpenGL") == 0;
-#else
-    constexpr bool use_opengl = true;
-#endif
-
-    if (use_opengl) {
-        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    } else {
-        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
-    }
-
-#if defined(__APPLE__)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // Always required on Mac
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-#endif
-
-#ifdef _WIN32
-    // Use high-resolution mTimer by default on Windows 10 (so that NtSetTimerResolution (...) hacks are not needed)
-    mTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
-    // Fallback to low resolution mTimer if unsupported by the OS
-    if (mTimer == nullptr) {
-        mTimer = CreateWaitableTimer(nullptr, false, nullptr);
-    }
-#endif
-
-    len = sprintf(title, "%s (%s)", gameName, gfxApiName);
-
-#ifdef __IOS__
-    Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;
-#else
-    Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
-#endif
-
-    if (use_opengl) {
-        flags = flags | SDL_WINDOW_OPENGL;
-    } else {
-        flags = flags | SDL_WINDOW_METAL;
-    }
-
-    mWnd = SDL_CreateWindow(title, posX, posY, mWindowWidth, mWindowHeight, flags);
-#ifdef _WIN32
-    // Get Windows window handle and use it to subclass the window procedure.
-    // Needed to circumvent SDLs DPI scaling problems under windows (original does only scale *sometimes*).
-    SDL_SysWMinfo wmInfo;
-    SDL_VERSION(&wmInfo.version);
-    SDL_GetWindowWMInfo(mWnd, &wmInfo);
-    HWND hwnd = wmInfo.info.win.window;
-    SDL_WndProc = SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)gfx_sdl_wnd_proc);
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-#endif
-    int display_in_use = SDL_GetWindowDisplayIndex(mWnd);
-    if (display_in_use < 0) { // Fallback to default if out of bounds
-        posX = 100;
-        posY = 100;
-    }
-
-    if (use_opengl) {
-        SDL_GL_GetDrawableSize(mWnd, &mWindowWidth, &mWindowHeight);
-
-        if (startFullScreen) {
-            SetFullscreenImpl(true, false);
-        }
-
-        mCtx = SDL_GL_CreateContext(mWnd);
-
-        SDL_GL_MakeCurrent(mWnd, mCtx);
-        SDL_GL_SetSwapInterval(mVsyncEnabled ? 1 : 0);
-
-        mInitData.Opengl = { mWnd, mCtx };
-    } else {
-        uint32_t flags = SDL_RENDERER_ACCELERATED;
-        if (mVsyncEnabled) {
-            flags |= SDL_RENDERER_PRESENTVSYNC;
-        }
-        mRenderer = SDL_CreateRenderer(mWnd, -1, flags);
-        if (mRenderer == nullptr) {
-            SPDLOG_ERROR("Error creating renderer: {}", SDL_GetError());
-            return;
-        }
-
-        if (startFullScreen) {
-            SetFullscreenImpl(true, false);
-        }
-
-        SDL_GetRendererOutputSize(mRenderer, &mWindowWidth, &mWindowHeight);
-        mInitData.Metal = { mWnd, mRenderer };
-    }
-
-    Ship::Context::GetInstance()->GetWindow()->GetGui()->Init();
+    mInitData.LLGL = { std::make_shared<SDLSurface>(LLGL::Extent2D{ (uint32_t)mWindowWidth, (uint32_t)mWindowHeight },
+                                                    title, Ship::Context::GetInstance()->GetWindow()->GetRendererID(),
+                                                    mInitData.LLGL.desc),
+                       mInitData.LLGL.desc };
+    mWnd = mInitData.LLGL.Window->wnd;
 
     for (size_t i = 0; i < std::size(lus_to_sdl_table); i++) {
         mSdlToLusTable[lus_to_sdl_table[i]] = i;

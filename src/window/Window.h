@@ -10,8 +10,6 @@
 #include "controller/controldevice/controller/mapping/keyboard/KeyboardScancodes.h"
 
 namespace Ship {
-enum class WindowBackend { FAST3D_DXGI_DX11, FAST3D_SDL_OPENGL, FAST3D_SDL_METAL, FAST3D_SDL_LLGL, WINDOW_BACKEND_COUNT, };
-
 struct Coords {
     int32_t x;
     int32_t y;
@@ -63,9 +61,9 @@ class Window {
     virtual const char* GetKeyName(int32_t scancode) = 0;
     virtual uintptr_t GetGfxFrameBuffer() = 0;
 
-    WindowBackend GetWindowBackend();
-    std::shared_ptr<std::vector<WindowBackend>> GetAvailableWindowBackends();
-    bool IsAvailableWindowBackend(int32_t backendId);
+    int GetRendererID();
+    std::shared_ptr<std::vector<int>> GetAvailableRenderers();
+    bool IsAvailableRenderer(int32_t backendId);
     int32_t GetLastScancode();
     void SetLastScancode(int32_t scanCode);
     void ToggleFullscreen();
@@ -76,14 +74,14 @@ class Window {
     void SetForceCursorVisibility(bool visible);
 
   protected:
-    void SetWindowBackend(WindowBackend backend);
-    void AddAvailableWindowBackend(WindowBackend backend);
+    void SetRenderer(int backend);
+    void AddAvailableWindowBackend(int backend);
 
   private:
     std::shared_ptr<Gui> mGui;
     int32_t mLastScancode = -1;
-    WindowBackend mWindowBackend;
-    std::shared_ptr<std::vector<WindowBackend>> mAvailableWindowBackends;
+    int mRendererID = LLGL::RendererID::Undefined;
+    std::shared_ptr<std::vector<int>> mAvailableRenderers;
     // Hold a reference to Config because Window has a Save function called on Context destructor, where the singleton
     // is no longer available.
     std::shared_ptr<Config> mConfig;
