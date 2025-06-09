@@ -126,7 +126,7 @@ union Gfx;
 
 namespace Fast {
 
-class GfxRenderingAPI;
+class GfxRenderingAPILLGL;
 class GfxWindowBackend;
 
 constexpr size_t MAX_SEGMENT_POINTERS = 16;
@@ -358,11 +358,11 @@ class Interpreter {
     Interpreter();
     ~Interpreter();
 
-    void Init(GfxWindowBackend* wapi, class GfxRenderingAPI* rapi, const char* game_name, bool start_in_fullscreen,
+    void Init(GfxWindowBackend* wapi, class GfxRenderingAPILLGL* rapi, const char* game_name, bool start_in_fullscreen,
               uint32_t width, uint32_t height, uint32_t posX, uint32_t posY);
     void Destroy();
     void GetDimensions(uint32_t* width, uint32_t* height, int32_t* posX, int32_t* posY);
-    GfxRenderingAPI* GetCurrentRenderingAPI();
+    GfxRenderingAPILLGL* GetCurrentRenderingAPI();
     void StartFrame();
     void Run(Gfx* commands, const std::unordered_map<Mtx*, MtxF>& mtx_replacements);
     void EndFrame();
@@ -495,7 +495,7 @@ class Interpreter {
     size_t mBufVboLen{};
     size_t mBufVboNumTris{};
     GfxWindowBackend* mWapi = nullptr;
-    GfxRenderingAPI* mRapi = nullptr;
+    GfxRenderingAPILLGL* mRapi = nullptr;
 
     uintptr_t mSegmentPointers[MAX_SEGMENT_POINTERS]{};
 

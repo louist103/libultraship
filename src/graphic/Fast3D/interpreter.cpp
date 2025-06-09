@@ -4169,7 +4169,7 @@ void Interpreter::GetDimensions(uint32_t* width, uint32_t* height, int32_t* posX
     mWapi->GetDimensions(width, height, posX, posY);
 }
 
-void Interpreter::Init(class GfxWindowBackend* wapi, class GfxRenderingAPI* rapi, const char* game_name,
+void Interpreter::Init(class GfxWindowBackend* wapi, class GfxRenderingAPILLGL* rapi, const char* game_name,
                        bool start_in_fullscreen, uint32_t width, uint32_t height, uint32_t posX, uint32_t posY) {
     mWapi = wapi;
     mRapi = rapi;
@@ -4214,7 +4214,7 @@ void Interpreter::Destroy() {
     mRdp->loaded_texture[1].raw_tex_metadata.resource = nullptr;
 }
 
-GfxRenderingAPI* Interpreter::GetCurrentRenderingAPI() {
+GfxRenderingAPILLGL* Interpreter::GetCurrentRenderingAPI() {
     return mRapi;
 }
 

@@ -68,7 +68,7 @@ class Fast3dWindow : public Ship::Window {
     static void OnFullscreenChanged(bool isNowFullscreen);
 
   private:
-    GfxRenderingAPI* mRenderingApi;
+    GfxRenderingAPILLGL* mRenderingApi;
     GfxWindowBackend* mWindowManagerApi;
     std::shared_ptr<Interpreter> mInterpreter = nullptr;
 };
