@@ -26,11 +26,6 @@ layout(location = @{get_output_location()}) out vec4 vColor;
     @end
 @end
 
-@if(o_fog)
-    layout(location = @{get_vs_input_location("aFog", "RGBA32Float")}) in vec4 aFog;
-    layout(location = @{get_output_location()}) out vec4 vFog;
-@end
-
 out gl_PerVertex {
     vec4 gl_Position;
 };
@@ -49,10 +44,6 @@ void main() {
                 @end
             @end
         @end
-    @end
-    
-    @if(o_fog)
-        vFog = aFog;
     @end
     
     vColor = aColor;

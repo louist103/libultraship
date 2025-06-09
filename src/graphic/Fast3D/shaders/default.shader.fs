@@ -25,6 +25,12 @@ layout(binding = @{get_binding_index("vGrayscaleColor", "Buffer", "ConstantBuffe
     };
 @end
 
+@if(o_fog)
+layout(binding = @{get_binding_index("fog_color", "Buffer", "ConstantBuffer")}) uniform Fog { 
+    vec3 fog_color;
+};
+@end
+
 @for(i in 0..2)
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTex@{i};
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTexSampl" + to_string(i), "Sampler", "uTex" + to_string(i))}) uniform sampler uTexSampl@{i};
@@ -52,8 +58,6 @@ layout(location = @{get_input_location()}) in vec4 vColor;
         @end
     @end
 @end
-
-@if(o_fog) layout(location = @{get_input_location()}) in vec4 vFog;
 
 #define TEX_OFFSET(off) texture(tex, texCoord - off / texSize)
 #define WRAP(x, low, high) mod((x)-(low), (high)-(low)) + (low)
@@ -92,6 +96,9 @@ vec4 hookTexture2D(in int id, in texture2D tex, in sampler sampl, in vec2 uv, in
 layout(location = 0) out vec4 fragColor;
 
 void main() {
+    @if(o_fog)
+        vec4 vFog = vec4(fog_color, vColor.a);
+    @end
     @for(i in 0..2)
         @if(o_textures[i])
             @{s = o_clamp[i][0]}

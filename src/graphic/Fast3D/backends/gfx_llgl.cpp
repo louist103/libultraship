@@ -616,6 +616,8 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
             prg->noiseScaleBinding = i;
         } else if (binding.name.compare("vGrayscaleColor") == 0) {
             prg->grayScaleBinding = i;
+        } else if (binding.name.compare("fog_color") == 0) {
+            prg->bindingFogColor = i;
         }
         for (int j = 0; j < cc_features.numInputs; j++) {
             if (binding.name.compare("vInput" + std::to_string(j + 1)) == 0) {
@@ -866,6 +868,13 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
         }
     }
 
+    if (mCurrentShaderProgram->bindingFogColor.has_value()) {
+        float fog_color[3] = { rdp->fog_color.r / 255.0f, rdp->fog_color.g / 255.0f,
+                               rdp->fog_color.b / 255.0f };
+        llgl_cmdBuffer->UpdateBuffer(*fogColorBuffer, 0, fog_color, sizeof(fog_color));
+        llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingFogColor, *fogColorBuffer);
+    }
+
     for (int i = 0; i < mCurrentShaderProgram->numInputs; i++) {
         if (mCurrentShaderProgram->bindingInput[i].has_value()) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingInput[i], *shader_input[i]);
@@ -976,6 +985,14 @@ void Fast::GfxRenderingAPILLGL::Init() {
     for (int i = 0; i < 8; i++) {
         shader_input[i] = llgl_renderer->CreateBuffer(inputDesc, initial_input);
     }
+
+    float initial_fog[3] = { 0.0f, 0.0f, 0.0f };
+    LLGL::BufferDescriptor fogDesc;
+    {
+        fogDesc.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        fogDesc.size = sizeof(initial_fog);
+    }
+    fogColorBuffer = llgl_renderer->CreateBuffer(fogDesc, initial_fog);
 }
 
 void Fast::GfxRenderingAPILLGL::OnResize(void) {

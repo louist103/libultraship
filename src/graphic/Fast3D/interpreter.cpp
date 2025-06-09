@@ -1668,13 +1668,6 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
                 mBufVbo[mBufVboLen++] = (tex_height2[t] - 0.5f) / tex_height[t];
             }
         }
-
-        if (use_fog) {
-            mBufVbo[mBufVboLen++] = mRdp->fog_color.r / 255.0f;
-            mBufVbo[mBufVboLen++] = mRdp->fog_color.g / 255.0f;
-            mBufVbo[mBufVboLen++] = mRdp->fog_color.b / 255.0f;
-            mBufVbo[mBufVboLen++] = v_arr[i]->color.a / 255.0f; // fog factor (not alpha)
-        }
     }
 
     mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp, comb);

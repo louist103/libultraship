@@ -47,6 +47,7 @@ struct ShaderProgramLLGL {
     std::optional<int> bindingBlendSampl[2];
     std::optional<int> grayScaleBinding;
     std::optional<int> bindingInput[8];
+    std::optional<int> bindingFogColor;
     LLGL::VertexFormat vertexFormat;
     LLGL::PipelineState* pipeline[2][2]; // [depth disabled][zmode decal]
 };
@@ -119,6 +120,7 @@ class GfxRenderingAPILLGL {
     LLGL::Buffer* frameCountBuffer;
     LLGL::Buffer* noiseScaleBuffer;
     LLGL::Buffer* grayScaleBuffer;
+    LLGL::Buffer* fogColorBuffer;
     int current_framebuffer_id = 0;
     GfxWindowBackend* mWindowBackend = nullptr;
 };
