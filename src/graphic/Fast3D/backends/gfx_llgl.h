@@ -24,6 +24,15 @@ struct tuple_bool_int_int_hash {
     }
 };
 
+struct pair_int64_hash {
+    std::size_t operator()(const std::pair<uint64_t, uint32_t>& p) const {
+        std::size_t h1 = std::hash<uint64_t>{}(p.first);
+        std::size_t h2 = std::hash<uint32_t>{}(p.second);
+        // Combine hashes
+        return h1 ^ (h2 << 1);
+    }
+};
+
 struct ShaderProgramLLGL {
     int numInputs;
     int frameCountBinding;
@@ -96,7 +105,7 @@ class GfxRenderingAPILLGL {
     std::string llgl_build_fs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc);
     std::string llgl_build_vs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc,
                                      LLGL::VertexFormat& vertexFormat);
-    std::unordered_map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL> mShaderProgramPool;
+    std::unordered_map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL, pair_int64_hash> mShaderProgramPool;
     bool disable_depth = true;
     bool disable_write_depth = true;
     struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;
