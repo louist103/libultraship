@@ -113,6 +113,12 @@ static const char* llgl_shader_item_to_str(uint32_t item, bool with_alpha, bool 
             case SHADER_NOISE:
                 return with_alpha ? "vec4(" RAND_NOISE ", " RAND_NOISE ", " RAND_NOISE ", " RAND_NOISE ")"
                                   : "vec3(" RAND_NOISE ", " RAND_NOISE ", " RAND_NOISE ")";
+            case VERTEX_COLOR:
+                if (with_alpha) {
+                    return "vColor";
+                } else {
+                    return "vColor.rgb";
+            }
         }
     } else {
         switch (item) {
@@ -140,6 +146,8 @@ static const char* llgl_shader_item_to_str(uint32_t item, bool with_alpha, bool 
                 return "texel.a";
             case SHADER_NOISE:
                 return RAND_NOISE;
+            case VERTEX_COLOR:
+                return "vColor.a";
         }
     }
     return "";
@@ -152,7 +160,7 @@ bool llgl_get_bool(prism::ContextTypes* value) {
     return false;
 }
 
-prism::ContextTypes* llgl_append_formula(prism::ContextItems* _, prism::ContextTypes* a_arg,
+prism::ContextTypes* llgl_append_formula(prism::ContextItems* context, prism::ContextTypes* a_arg,
                                          prism::ContextTypes* a_single, prism::ContextTypes* a_mult,
                                          prism::ContextTypes* a_mix, prism::ContextTypes* a_with_alpha,
                                          prism::ContextTypes* a_only_alpha, prism::ContextTypes* a_alpha,
@@ -350,19 +358,6 @@ std::string GfxRenderingAPILLGL::llgl_build_fs_shader(const CCFeatures& cc_featu
         { "FILTER_LINEAR", Fast::FILTER_LINEAR },
         { "FILTER_NONE", Fast::FILTER_NONE },
         { "srgb_mode", srgb_mode },
-        { "SHADER_0", SHADER_0 },
-        { "SHADER_INPUT_1", SHADER_INPUT_1 },
-        { "SHADER_INPUT_2", SHADER_INPUT_2 },
-        { "SHADER_INPUT_3", SHADER_INPUT_3 },
-        { "SHADER_INPUT_4", SHADER_INPUT_4 },
-        { "SHADER_INPUT_5", SHADER_INPUT_5 },
-        { "SHADER_INPUT_6", SHADER_INPUT_6 },
-        { "SHADER_INPUT_7", SHADER_INPUT_7 },
-        { "SHADER_TEXEL0", SHADER_TEXEL0 },
-        { "SHADER_TEXEL0A", SHADER_TEXEL0A },
-        { "SHADER_TEXEL1", SHADER_TEXEL1 },
-        { "SHADER_TEXEL1A", SHADER_TEXEL1A },
-        { "SHADER_1", SHADER_1 },
         { "SHADER_COMBINED", SHADER_COMBINED },
         { "SHADER_NOISE", SHADER_NOISE },
         { "append_formula", (InvokeFunc)llgl_append_formula },
@@ -600,42 +595,40 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
     int i = 0;
     for (auto& binding : layoutDesc.bindings) {
         // harcode for now
-        if (binding.name.compare("uTex0") == 0) {
-            prg->bindingTexture[0] = i;
-        } else if (binding.name.compare("uTexSampl0") == 0) {
-            prg->bindingTextureSampl[0] = i;
-        } else if (binding.name.compare("uTex1") == 0) {
-            prg->bindingTexture[1] = i;
-        } else if (binding.name.compare("uTexSampl1") == 0) {
-            prg->bindingTextureSampl[1] = i;
-        } else if (binding.name.compare("uTexMask0") == 0) {
-            prg->bindingMask[0] = i;
-        } else if (binding.name.compare("uTexMaskSampl0") == 0) {
-            prg->bindingMaskSampl[0] = i;
-        } else if (binding.name.compare("uTexMask1") == 0) {
-            prg->bindingMask[1] = i;
-        } else if (binding.name.compare("uTexMaskSampl1") == 0) {
-            prg->bindingMaskSampl[1] = i;
-        } else if (binding.name.compare("uTexBlend0") == 0) {
-            prg->bindingBlend[0] = i;
-        } else if (binding.name.compare("uTexBlendSampl0") == 0) {
-            prg->bindingBlendSampl[0] = i;
-        } else if (binding.name.compare("uTexBlend1") == 0) {
-            prg->bindingBlend[1] = i;
-        } else if (binding.name.compare("uTexBlendSampl1") == 0) {
-            prg->bindingBlendSampl[1] = i;
-        } else if (binding.name.compare("frame_count") == 0) {
+        for (int j = 0; j < 2; j++) {
+            if (binding.name.compare("uTex" + std::to_string(j)) == 0) {
+                prg->bindingTexture[j] = i;
+            } else if (binding.name.compare("uTexSampl" + std::to_string(j)) == 0) {
+                prg->bindingTextureSampl[j] = i;
+            } else if (binding.name.compare("uTexMask" + std::to_string(j)) == 0) {
+                prg->bindingMask[j] = i;
+            } else if (binding.name.compare("uTexMaskSampl" + std::to_string(j)) == 0) {
+                prg->bindingMaskSampl[j] = i;
+            } else if (binding.name.compare("uTexBlend" + std::to_string(j)) == 0) {
+                prg->bindingBlend[j] = i;
+            } else if (binding.name.compare("uTexBlendSampl" + std::to_string(j)) == 0) {
+                prg->bindingBlendSampl[j] = i;
+            }
+        }
+        if (binding.name.compare("frame_count") == 0) {
             prg->frameCountBinding = i;
         } else if (binding.name.compare("noise_scale") == 0) {
             prg->noiseScaleBinding = i;
         } else if (binding.name.compare("vGrayscaleColor") == 0) {
             prg->grayScaleBinding = i;
         }
+        for (int j = 0; j < cc_features.numInputs; j++) {
+            if (binding.name.compare("vInput" + std::to_string(j + 1)) == 0) {
+                prg->bindingInput[j] = i;
+            }
+        }
         i++;
     }
     prg->numInputs = cc_features.numInputs;
     prg->vertexFormat = vertexFormat;
+    prg->useAlpha = cc_features.opt_alpha;
     mCurrentShaderProgram = prg;
+    prg->use_fog = cc_features.opt_fog;
     return (struct ShaderProgram*)prg;
 }
 
@@ -658,7 +651,7 @@ void Fast::GfxRenderingAPILLGL::ShaderGetInfo(struct ShaderProgram* prg, uint8_t
 }
 
 uint32_t Fast::GfxRenderingAPILLGL::NewTexture(void) {
-    for (size_t i = 0; i < textures.size(); i++) {
+    for (size_t i = 1; i < textures.size(); i++) {
         if (textures[i].first == nullptr) {
             // Reuse the texture slot
             textures[i].second = samplers[{ false, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP }];
@@ -779,7 +772,7 @@ void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) 
 void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp) {
+void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb) {
     LLGL::BufferDescriptor vboDesc;
     {
         vboDesc.bindFlags = LLGL::BindFlags::VertexBuffer;
@@ -802,8 +795,84 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
         llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < mCurrentShaderProgram->numInputs; j++) {
+        RGBA* color;
+        RGBA tmp;
+        for (int k = 0; k < 1 + (mCurrentShaderProgram->useAlpha ? 1 : 0); k++) {
+            switch (comb->shader_input_mapping[k][j]) {
+                    // Note: CCMUX constants and ACMUX constants used here have same value, which is why this works
+                    // (except LOD fraction).
+                case G_CCMUX_PRIMITIVE:
+                    color = &rdp->prim_color;
+                    break;
+                case G_CCMUX_ENVIRONMENT:
+                    color = &rdp->env_color;
+                    break;
+                case G_CCMUX_PRIMITIVE_ALPHA: {
+                    tmp.r = tmp.g = tmp.b = rdp->prim_color.a;
+                    color = &tmp;
+                    break;
+                }
+                case G_CCMUX_ENV_ALPHA: {
+                    tmp.r = tmp.g = tmp.b = rdp->env_color.a;
+                    color = &tmp;
+                    break;
+                }
+                case G_CCMUX_PRIM_LOD_FRAC: {
+                    tmp.r = tmp.g = tmp.b = tmp.a = rdp->prim_lod_fraction;
+                    color = &tmp;
+                    break;
+                }
+                case G_CCMUX_LOD_FRACTION: {
+                    if (rdp->other_mode_l & G_TL_LOD) {
+                        // "Hack" that works for Bowser - Peach painting
+                        // float distance_frac = (v1->w - 3000.0f) / 3000.0f;
+                        float distance_frac = (buf_vbo[3] - 3000.0f) / 3000.0f;
+                        if (distance_frac < 0.0f) {
+                            distance_frac = 0.0f;
+                        }
+                        if (distance_frac > 1.0f) {
+                            distance_frac = 1.0f;
+                        }
+                        tmp.r = tmp.g = tmp.b = tmp.a = distance_frac * 255.0f;
+                    } else {
+                        tmp.r = tmp.g = tmp.b = tmp.a = 255.0f;
+                    }
+                    color = &tmp;
+                    break;
+                }
+                case G_ACMUX_PRIM_LOD_FRAC:
+                    tmp.a = rdp->prim_lod_fraction;
+                    color = &tmp;
+                    break;
+                default:
+                    memset(&tmp, 0, sizeof(tmp));
+                    color = &tmp;
+                    break;
+            }
+            if (k == 0) {
+                float color_[3] = { color->r / 255.0f, color->g / 255.0f, color->b / 255.0f };
+                llgl_cmdBuffer->UpdateBuffer(*shader_input[j], 0, color_,
+                                            sizeof(color_));
+            } else {
+                float alpha = color->a / 255.0f;
+                if (mCurrentShaderProgram->use_fog && comb->shader_input_mapping[0][j] == G_CCMUX_SHADE) { // if (use_fog && color == &v_arr[i]->color) { can make some inaccuracies
+                    // Shade alpha is 100% for fog
+                    alpha = 1.0f;
+                }
+                llgl_cmdBuffer->UpdateBuffer(*shader_input[j], sizeof(float) * 3, &alpha,
+                                            sizeof(float));
+            }
+        }
+    }
 
+    for (int i = 0; i < mCurrentShaderProgram->numInputs; i++) {
+        if (mCurrentShaderProgram->bindingInput[i].has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingInput[i], *shader_input[i]);
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
         if (mCurrentShaderProgram->bindingTexture[i].has_value() && textures[current_texture_ids[i]].first != nullptr) {
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i],
                                         *textures[current_texture_ids[i]].first);
@@ -854,6 +923,9 @@ void Fast::GfxRenderingAPILLGL::Init() {
     llgl_swapChain = llgl_renderer->CreateSwapChain(swapChainDesc, mWindowBackend->mInitData.LLGL.Window);
     llgl_swapChain->SetVsyncInterval(0);
 
+    textures.clear();
+    textures.push_back({ nullptr, nullptr });
+
     llgl_cmdBuffer = llgl_renderer->CreateCommandBuffer(LLGL::CommandBufferFlags::ImmediateSubmit);
     framebuffers.push_back({ llgl_swapChain, 0 });
     LLGL::BufferDescriptor bufferDescFrameCount;
@@ -893,6 +965,16 @@ void Fast::GfxRenderingAPILLGL::Init() {
     samplers[{ linear_filter, cms, cmt }] = sampler;
     for (int tile = 0; tile < 6; tile++) {
         current_texture_ids[tile] = 0;
+    }
+
+    float initial_input[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    LLGL::BufferDescriptor inputDesc;
+    {
+        inputDesc.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        inputDesc.size = sizeof(initial_input);
+    }
+    for (int i = 0; i < 8; i++) {
+        shader_input[i] = llgl_renderer->CreateBuffer(inputDesc, initial_input);
     }
 }
 

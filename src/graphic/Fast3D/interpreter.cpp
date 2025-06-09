@@ -294,10 +294,12 @@ void Interpreter::GenerateCC(ColorCombiner* comb, const ColorCombinerKey& key) {
                     case G_CCMUX_NOISE:
                         val = SHADER_NOISE;
                         break;
+                    case G_CCMUX_SHADE:
+                        val = VERTEX_COLOR;
+                        break;
                     case G_CCMUX_PRIMITIVE:
                     case G_CCMUX_PRIMITIVE_ALPHA:
                     case G_CCMUX_PRIM_LOD_FRAC:
-                    case G_CCMUX_SHADE:
                     case G_CCMUX_ENVIRONMENT:
                     case G_CCMUX_ENV_ALPHA:
                     case G_CCMUX_LOD_FRACTION:
@@ -361,13 +363,15 @@ void Interpreter::GenerateCC(ColorCombiner* comb, const ColorCombinerKey& key) {
                         }
                         [[fallthrough]]; // for G_ACMUX_PRIM_LOD_FRAC
                     case G_ACMUX_PRIMITIVE:
-                    case G_ACMUX_SHADE:
                     case G_ACMUX_ENVIRONMENT:
                         if (inputNumber[c[i][1][j]] == 0) {
                             shaderInputMapping[1][nextInputNumber - 1] = c[i][1][j];
                             inputNumber[c[i][1][j]] = nextInputNumber++;
                         }
                         val = inputNumber[c[i][1][j]];
+                        break;
+                    case G_ACMUX_SHADE:
+                        val = VERTEX_COLOR;
                         break;
                 }
                 shaderId0 |= (uint64_t)val << (i * 32 + 16 + j * 4);
@@ -1609,6 +1613,12 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
         mBufVbo[mBufVboLen++] = z;
         mBufVbo[mBufVboLen++] = w;
 
+        // Vertex color
+        mBufVbo[mBufVboLen++] = v_arr[i]->color.r / 255.0f;
+        mBufVbo[mBufVboLen++] = v_arr[i]->color.g / 255.0f;
+        mBufVbo[mBufVboLen++] = v_arr[i]->color.b / 255.0f;
+        mBufVbo[mBufVboLen++] = v_arr[i]->color.a / 255.0f; // alpha
+
         for (int t = 0; t < 2; t++) {
             if (!usedTextures[t]) {
                 continue;
@@ -1665,87 +1675,9 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
             mBufVbo[mBufVboLen++] = mRdp->fog_color.b / 255.0f;
             mBufVbo[mBufVboLen++] = v_arr[i]->color.a / 255.0f; // fog factor (not alpha)
         }
-
-        for (int j = 0; j < numInputs; j++) {
-            RGBA* color;
-            RGBA tmp;
-            for (int k = 0; k < 1 + (use_alpha ? 1 : 0); k++) {
-                switch (comb->shader_input_mapping[k][j]) {
-                        // Note: CCMUX constants and ACMUX constants used here have same value, which is why this works
-                        // (except LOD fraction).
-                    case G_CCMUX_PRIMITIVE:
-                        color = &mRdp->prim_color;
-                        break;
-                    case G_CCMUX_SHADE:
-                        color = &v_arr[i]->color;
-                        break;
-                    case G_CCMUX_ENVIRONMENT:
-                        color = &mRdp->env_color;
-                        break;
-                    case G_CCMUX_PRIMITIVE_ALPHA: {
-                        tmp.r = tmp.g = tmp.b = mRdp->prim_color.a;
-                        color = &tmp;
-                        break;
-                    }
-                    case G_CCMUX_ENV_ALPHA: {
-                        tmp.r = tmp.g = tmp.b = mRdp->env_color.a;
-                        color = &tmp;
-                        break;
-                    }
-                    case G_CCMUX_PRIM_LOD_FRAC: {
-                        tmp.r = tmp.g = tmp.b = mRdp->prim_lod_fraction;
-                        color = &tmp;
-                        break;
-                    }
-                    case G_CCMUX_LOD_FRACTION: {
-                        if (mRdp->other_mode_l & G_TL_LOD) {
-                            // "Hack" that works for Bowser - Peach painting
-                            float distance_frac = (v1->w - 3000.0f) / 3000.0f;
-                            if (distance_frac < 0.0f) {
-                                distance_frac = 0.0f;
-                            }
-                            if (distance_frac > 1.0f) {
-                                distance_frac = 1.0f;
-                            }
-                            tmp.r = tmp.g = tmp.b = tmp.a = distance_frac * 255.0f;
-                        } else {
-                            tmp.r = tmp.g = tmp.b = tmp.a = 255.0f;
-                        }
-                        color = &tmp;
-                        break;
-                    }
-                    case G_ACMUX_PRIM_LOD_FRAC:
-                        tmp.a = mRdp->prim_lod_fraction;
-                        color = &tmp;
-                        break;
-                    default:
-                        memset(&tmp, 0, sizeof(tmp));
-                        color = &tmp;
-                        break;
-                }
-                if (k == 0) {
-                    mBufVbo[mBufVboLen++] = color->r / 255.0f;
-                    mBufVbo[mBufVboLen++] = color->g / 255.0f;
-                    mBufVbo[mBufVboLen++] = color->b / 255.0f;
-                } else {
-                    if (use_fog && color == &v_arr[i]->color) {
-                        // Shade alpha is 100% for fog
-                        mBufVbo[mBufVboLen++] = 1.0f;
-                    } else {
-                        mBufVbo[mBufVboLen++] = color->a / 255.0f;
-                    }
-                }
-            }
-        }
-
-        // struct RGBA *color = &v_arr[i]->color;
-        // mBufVbo[mBufVboLen++] = color->r / 255.0f;
-        // mBufVbo[mBufVboLen++] = color->g / 255.0f;
-        // mBufVbo[mBufVboLen++] = color->b / 255.0f;
-        // mBufVbo[mBufVboLen++] = color->a / 255.0f;
     }
 
-    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp);
+    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp, comb);
     mBufVboLen = 0;
     mBufVboNumTris = 0;
 }

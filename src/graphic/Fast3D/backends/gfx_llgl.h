@@ -34,6 +34,8 @@ struct pair_int64_hash {
 };
 
 struct ShaderProgramLLGL {
+    bool useAlpha;
+    bool use_fog;
     int numInputs;
     int frameCountBinding;
     int noiseScaleBinding;
@@ -44,6 +46,7 @@ struct ShaderProgramLLGL {
     std::optional<int> bindingBlend[2];
     std::optional<int> bindingBlendSampl[2];
     std::optional<int> grayScaleBinding;
+    std::optional<int> bindingInput[8];
     LLGL::VertexFormat vertexFormat;
     LLGL::PipelineState* pipeline[2][2]; // [depth disabled][zmode decal]
 };
@@ -68,7 +71,7 @@ class GfxRenderingAPILLGL {
     void SetViewport(int x, int y, int width, int height);
     void SetScissor(int x, int y, int width, int height);
     void SetUseAlpha(bool useAlpha);
-    void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp);
+    void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb);
     void Init();
     void OnResize();
     void StartFrame();
@@ -106,6 +109,7 @@ class GfxRenderingAPILLGL {
     std::string llgl_build_vs_shader(const CCFeatures& cc_features, LLGL::PipelineLayoutDescriptor& layoutDesc,
                                      LLGL::VertexFormat& vertexFormat);
     std::unordered_map<std::pair<uint64_t, uint32_t>, struct ShaderProgramLLGL, pair_int64_hash> mShaderProgramPool;
+    LLGL::Buffer* shader_input[8];
     bool disable_depth = true;
     bool disable_write_depth = true;
     struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;

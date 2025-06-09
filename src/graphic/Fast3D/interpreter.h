@@ -56,7 +56,8 @@ enum {
     SHADER_TEXEL1A,
     SHADER_1,
     SHADER_COMBINED,
-    SHADER_NOISE
+    SHADER_NOISE,
+    VERTEX_COLOR,
 };
 
 #ifdef __cplusplus

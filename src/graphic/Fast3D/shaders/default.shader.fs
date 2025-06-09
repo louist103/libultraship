@@ -15,6 +15,16 @@ layout(binding = @{get_binding_index("vGrayscaleColor", "Buffer", "ConstantBuffe
 };
 @end
 
+@for(i in 0..o_inputs)
+    layout(binding = @{get_binding_index("vInput" + to_string(i + 1), "Buffer", "ConstantBuffer")}) uniform Input@{i + 1} {
+    @if(o_alpha)
+        vec4 vInput@{i + 1};
+    @else
+        vec3 vInput@{i + 1};
+    @end
+    };
+@end
+
 @for(i in 0..2)
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTex@{i};
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTexSampl" + to_string(i), "Sampler", "uTex" + to_string(i))}) uniform sampler uTexSampl@{i};
@@ -23,6 +33,10 @@ layout(binding = @{get_binding_index("vGrayscaleColor", "Buffer", "ConstantBuffe
     @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlend" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTexBlend@{i};
     @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlendSampl" + to_string(i), "Sampler", "uTexBlend" + to_string(i))}) uniform sampler uTexBlendSampl@{i};
 @end
+
+// vertex attributes
+
+layout(location = @{get_input_location()}) in vec4 vColor;
 
 @for(i in 0..2)
     @if(o_textures[i])
@@ -40,15 +54,6 @@ layout(binding = @{get_binding_index("vGrayscaleColor", "Buffer", "ConstantBuffe
 @end
 
 @if(o_fog) layout(location = @{get_input_location()}) in vec4 vFog;
-
-@for(i in 0..o_inputs)
-    @if(o_alpha)
-        layout(location = @{get_input_location()}) in vec4 vInput@{i + 1};
-    @else
-        layout(location = @{get_input_location()}) in vec3 vInput@{i + 1};
-    @end
-@end
-
 
 #define TEX_OFFSET(off) texture(tex, texCoord - off / texSize)
 #define WRAP(x, low, high) mod((x)-(low), (high)-(low)) + (low)
