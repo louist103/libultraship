@@ -11,6 +11,8 @@ layout(std140, binding = @{get_binding_index("noise_scale", "Buffer", "ConstantB
     float noise_scale;
 };
 
+@if(o_grayscale) layout(binding = @{get_binding_index("vGrayscaleColor", "Buffer", "ConstantBuffer")}) uniform vec4 vGrayscaleColor;
+
 @for(i in 0..2)
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTex@{i};
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTexSampl" + to_string(i), "Sampler", "uTex" + to_string(i))}) uniform sampler uTexSampl@{i};
@@ -36,7 +38,6 @@ layout(std140, binding = @{get_binding_index("noise_scale", "Buffer", "ConstantB
 @end
 
 @if(o_fog) layout(location = @{get_input_location()}) in vec4 vFog;
-@if(o_grayscale) layout(location = @{get_input_location()}) in vec4 vGrayscaleColor;
 
 @for(i in 0..o_inputs)
     @if(o_alpha)

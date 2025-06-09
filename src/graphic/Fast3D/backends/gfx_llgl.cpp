@@ -413,7 +413,6 @@ std::string GfxRenderingAPILLGL::llgl_build_vs_shader(const CCFeatures& cc_featu
         { "o_textures", M_ARRAY(cc_features.usedTextures, bool, 2) },
         { "o_clamp", M_ARRAY(cc_features.clamp, bool, 2, 2) },
         { "o_fog", cc_features.opt_fog },
-        { "o_grayscale", cc_features.opt_grayscale },
         { "o_alpha", cc_features.opt_alpha },
         { "o_inputs", cc_features.numInputs },
         { "get_vs_input_location", (InvokeFunc)get_vs_input_location },
@@ -629,6 +628,8 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
             prg->frameCountBinding = i;
         } else if (binding.name.compare("noise_scale") == 0) {
             prg->noiseScaleBinding = i;
+        } else if (binding.name.compare("vGrayscaleColor") == 0) {
+            prg->grayScaleBinding = i;
         }
         i++;
     }
@@ -771,7 +772,7 @@ void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) 
 void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) {
+void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp) {
     LLGL::BufferDescriptor vboDesc;
     {
         vboDesc.bindFlags = LLGL::BindFlags::VertexBuffer;
@@ -787,6 +788,12 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
 
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
+
+    if (mCurrentShaderProgram->grayScaleBinding.has_value()) {
+        llgl_cmdBuffer->UpdateBuffer(*grayScaleBuffer, 0,
+                                    &rdp->grayscale_color, sizeof(rdp->grayscale_color));
+        llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
+    }
 
     for (int i = 0; i < 2; i++) {
 
@@ -855,6 +862,14 @@ void Fast::GfxRenderingAPILLGL::Init() {
         bufferDescNoiseScale.size = sizeof(float);
     }
     noiseScaleBuffer = llgl_renderer->CreateBuffer(bufferDescNoiseScale, &noise_scale);
+
+    LLGL::BufferDescriptor bufferDescGrayScale;
+    {
+        bufferDescGrayScale.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        bufferDescGrayScale.size = 4 * sizeof(float);
+    }
+    float rdp_grayscale_color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    grayScaleBuffer = llgl_renderer->CreateBuffer(bufferDescGrayScale, rdp_grayscale_color);
 
     bool linear_filter = false;
     int cms = G_TX_NOMIRROR | G_TX_WRAP;

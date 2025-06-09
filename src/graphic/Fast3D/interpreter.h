@@ -387,7 +387,6 @@ class Interpreter {
     void GetCurDimensions(uint32_t* width, uint32_t* height);
 
     // private: TODO make these private
-    void Flush();
     ShaderProgram* LookupOrCreateShaderProgram(uint64_t id0, uint64_t id1);
     ColorCombiner* LookupOrCreateColorCombiner(const ColorCombinerKey& key);
     void TextureCacheClear();

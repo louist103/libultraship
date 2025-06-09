@@ -123,14 +123,6 @@ void GfxSetInstance(std::shared_ptr<Interpreter> gfx) {
     mInstance = gfx;
 }
 
-void Interpreter::Flush() {
-    if (mBufVboLen > 0) {
-        mRapi->DrawTriangles(mBufVbo, mBufVboLen, mBufVboNumTris);
-        mBufVboLen = 0;
-        mBufVboNumTris = 0;
-    }
-}
-
 ShaderProgram* Interpreter::LookupOrCreateShaderProgram(uint64_t id0, uint64_t id1) {
     ShaderProgram* prg = mRapi->LookupShader(id0, id1);
     if (prg == nullptr) {
@@ -398,7 +390,6 @@ ColorCombiner* Interpreter::LookupOrCreateColorCombiner(const ColorCombinerKey& 
     if (mPrevCombiner != mColorCombinerPool.end()) {
         return &mPrevCombiner->second;
     }
-    Flush();
     mPrevCombiner = mColorCombinerPool.insert(std::make_pair(key, ColorCombiner())).first;
     GenerateCC(&mPrevCombiner->second, key);
     return &mPrevCombiner->second;
@@ -1408,26 +1399,22 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
     bool depth_mask = (mRdp->other_mode_l & Z_UPD) == Z_UPD;
     uint8_t depth_test_and_mask = (depth_test ? 1 : 0) | (depth_mask ? 2 : 0);
     if (depth_test_and_mask != mRenderingState.depth_test_and_mask) {
-        Flush();
         mRapi->SetDepthTestAndMask(depth_test, depth_mask);
         mRenderingState.depth_test_and_mask = depth_test_and_mask;
     }
 
     bool zmode_decal = (mRdp->other_mode_l & ZMODE_DEC) == ZMODE_DEC;
     if (zmode_decal != mRenderingState.decal_mode) {
-        Flush();
         mRapi->SetZmodeDecal(zmode_decal);
         mRenderingState.decal_mode = zmode_decal;
     }
 
     if (mRdp->viewport_or_scissor_changed) {
         if (memcmp(&mRdp->viewport, &mRenderingState.viewport, sizeof(mRdp->viewport)) != 0) {
-            Flush();
             mRapi->SetViewport(mRdp->viewport.x, mRdp->viewport.y, mRdp->viewport.width, mRdp->viewport.height);
             mRenderingState.viewport = mRdp->viewport;
         }
         if (memcmp(&mRdp->scissor, &mRenderingState.scissor, sizeof(mRdp->scissor)) != 0) {
-            Flush();
             mRapi->SetScissor(mRdp->scissor.x, mRdp->scissor.y, mRdp->scissor.width, mRdp->scissor.height);
             mRenderingState.scissor = mRdp->scissor;
         }
@@ -1517,7 +1504,6 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
         uint32_t tile = mRdp->first_tile_index + i;
         if (comb->usedTextures[i]) {
             if (mRdp->textures_changed[i]) {
-                Flush();
                 ImportTexture(i, tile, false);
                 if (mRdp->loaded_texture[i].masked) {
                     ImportTextureMask(SHADER_FIRST_MASK_TEXTURE + i, tile);
@@ -1577,7 +1563,6 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
             bool linear_filter = (mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT;
             if (linear_filter != mRenderingState.mTextures[i]->second.linear_filter ||
                 cms != mRenderingState.mTextures[i]->second.cms || cmt != mRenderingState.mTextures[i]->second.cmt) {
-                Flush();
 
                 // Set the same sampler params on the blended texture. Needed for opengl.
                 if (mRdp->loaded_texture[i].blended) {
@@ -1598,13 +1583,11 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
             LookupOrCreateShaderProgram(comb->shader_id0, comb->shader_id1 | tm * SHADER_OPT(TEXEL0_CLAMP_S));
     }
     if (prg != mRenderingState.mShaderProgram) {
-        Flush();
         mRapi->UnloadShader(mRenderingState.mShaderProgram);
         mRapi->LoadShader(prg);
         mRenderingState.mShaderProgram = prg;
     }
     if (use_alpha != mRenderingState.alpha_blend) {
-        Flush();
         mRapi->SetUseAlpha(use_alpha);
         mRenderingState.alpha_blend = use_alpha;
     }
@@ -1681,13 +1664,6 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
             mBufVbo[mBufVboLen++] = mRdp->fog_color.g / 255.0f;
             mBufVbo[mBufVboLen++] = mRdp->fog_color.b / 255.0f;
             mBufVbo[mBufVboLen++] = v_arr[i]->color.a / 255.0f; // fog factor (not alpha)
-        }
-
-        if (use_grayscale) {
-            mBufVbo[mBufVboLen++] = mRdp->grayscale_color.r / 255.0f;
-            mBufVbo[mBufVboLen++] = mRdp->grayscale_color.g / 255.0f;
-            mBufVbo[mBufVboLen++] = mRdp->grayscale_color.b / 255.0f;
-            mBufVbo[mBufVboLen++] = mRdp->grayscale_color.a / 255.0f; // lerp interpolation factor (not alpha)
         }
 
         for (int j = 0; j < numInputs; j++) {
@@ -1769,10 +1745,9 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
         // mBufVbo[mBufVboLen++] = color->a / 255.0f;
     }
 
-    if (++mBufVboNumTris == MAX_TRI_BUFFER) {
-        // if (++mBufVbo_num_tris == 1) {
-        Flush();
-    }
+    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp);
+    mBufVboLen = 0;
+    mBufVboNumTris = 0;
 }
 
 void Interpreter::GfxSpGeometryMode(uint32_t clear, uint32_t set) {
@@ -3456,7 +3431,6 @@ bool gfx_set_timg_otr_filepath_handler_custom(F3DGfx** cmd0) {
 bool gfx_set_fb_handler_custom(F3DGfx** cmd0) {
     F3DGfx* cmd = *cmd0;
     Interpreter* gfx = mInstance.lock().get();
-    gfx->Flush();
 
     if (cmd->words.w1) {
         gfx->SetFrameBuffer((int32_t)cmd->words.w1, 1.0f);
@@ -3472,7 +3446,6 @@ bool gfx_set_fb_handler_custom(F3DGfx** cmd0) {
 
 bool gfx_reset_fb_handler_custom(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
-    gfx->Flush();
     gfx->mFbActive = false;
     gfx->mActiveFrameBuffer = gfx->mFrameBuffers.end();
     gfx->mRapi->StartDrawToFramebuffer(gfx->mRendersToFb ? gfx->mGameFb : 0,
@@ -3490,7 +3463,6 @@ bool gfx_copy_fb_handler_custom(F3DGfx** cmd0) {
     F3DGfx* cmd = *cmd0;
     bool* hasCopiedPtr = (bool*)cmd->words.w1;
 
-    gfx->Flush();
     gfx->CopyFrameBuffer(C0(11, 11), C0(0, 11), (bool)C0(22, 1), hasCopiedPtr);
     return false;
 }
@@ -3512,7 +3484,6 @@ bool gfx_read_fb_handler_custom(F3DGfx** cmd0) {
     width = C1(0, 16);
     height = C1(16, 16);
 
-    gfx->Flush();
     gfx->mRapi->ReadFramebufferToCPU(fbId, width, height, rgba16Buffer);
 
 #ifndef IS_BIGENDIAN
@@ -3530,9 +3501,6 @@ bool gfx_read_fb_handler_custom(F3DGfx** cmd0) {
 bool gfx_register_blended_texture_handler_custom(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
-
-    // Flush incase we are replacing a previous blended texture that hasn't been finialized to the GPU
-    gfx->Flush();
 
     char* timg = (char*)cmd->words.w1;
 
@@ -3562,7 +3530,6 @@ bool gfx_set_timg_fb_handler_custom(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->Flush();
     gfx->mRapi->SelectTextureFb((uint32_t)cmd->words.w1);
     gfx->mRdp->textures_changed[0] = false;
     gfx->mRdp->textures_changed[1] = false;
@@ -4333,7 +4300,6 @@ void Interpreter::Run(Gfx* commands, const std::unordered_map<Mtx*, MtxF>& mtx_r
         gfx_step();
     }
 
-    Flush();
     mGfxFrameBuffer = 0;
     currentDir = std::stack<std::string>();
 

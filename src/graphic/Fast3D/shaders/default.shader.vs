@@ -28,11 +28,6 @@ layout(location = @{get_vs_input_location("position", "RGBA32Float")}) in vec4 p
     layout(location = @{get_output_location()}) out vec4 vFog;
 @end
 
-@if(o_grayscale)
-    layout(location = @{get_vs_input_location("aGrayscaleColor", "RGBA32Float")}) in vec4 aGrayscaleColor;
-    layout(location = @{get_output_location()}) out vec4 vGrayscaleColor;
-@end
-
 @for(i in 0..o_inputs)
     @if(o_alpha)
         layout(location = @{get_vs_input_location("aInput" + to_string(i+1), "RGBA32Float")}) in vec4 aInput@{i + 1};
@@ -65,10 +60,6 @@ void main() {
     
     @if(o_fog)
         vFog = aFog;
-    @end
-    
-    @if(o_grayscale)
-        vGrayscaleColor = aGrayscaleColor;
     @end
     
     @for(i in 0..o_inputs)
