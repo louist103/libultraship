@@ -2,8 +2,6 @@
 
 #version 450 core
 
-// layout(binding = {get_binding_index("samplerState", "Sampler", "")}) uniform sampler samplerState;
-
 layout(std140, binding = @{get_binding_index("frame_count", "Buffer", "ConstantBuffer")}) uniform FrameCount {
     int frame_count;
 };
@@ -11,7 +9,11 @@ layout(std140, binding = @{get_binding_index("noise_scale", "Buffer", "ConstantB
     float noise_scale;
 };
 
-@if(o_grayscale) layout(binding = @{get_binding_index("vGrayscaleColor", "Buffer", "ConstantBuffer")}) uniform vec4 vGrayscaleColor;
+@if(o_grayscale)
+layout(binding = @{get_binding_index("vGrayscaleColor", "Buffer", "ConstantBuffer")}) uniform GrayScale {
+    vec4 vGrayscaleColor;
+};
+@end
 
 @for(i in 0..2)
     @if(o_textures[i]) layout(binding = @{get_binding_index("uTex" + to_string(i), "Texture", "Sampled")}) uniform texture2D uTex@{i};
