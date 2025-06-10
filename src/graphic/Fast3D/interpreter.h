@@ -515,6 +515,8 @@ class Interpreter {
     std::vector<std::string> shader_ids;
     int mInterpolationIndex;
     int mInterpolationIndexTarget;
+    bool chainOfTriangles = false;
+    std::vector<int> mTriangleIndices;
 };
 
 void gfx_set_target_ucode(UcodeHandlers ucode);

@@ -3075,7 +3075,8 @@ bool gfx_tri1_otr_handler_f3dex2(F3DGfx** cmd0) {
     uint8_t v00 = (uint8_t)(cmd->words.w0 & 0x0000FFFF);
     uint8_t v01 = (uint8_t)(cmd->words.w1 >> 16);
     uint8_t v02 = (uint8_t)(cmd->words.w1 & 0x0000FFFF);
-    gfx->GfxSpTri({ v00, v01, v02 }, false);
+    // gfx->GfxSpTri({ v00, v01, v02 }, false);
+    gfx->mTriangleIndices.insert(gfx->mTriangleIndices.end(), { v00, v01, v02 });
 
     return false;
 }
@@ -3084,8 +3085,8 @@ bool gfx_tri1_handler_f3dex2(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({ C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2 }, false);
-
+    // gfx->GfxSpTri({ C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2 }, false);
+    gfx->mTriangleIndices.insert(gfx->mTriangleIndices.end(), { C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2 });
     return false;
 }
 
@@ -3093,7 +3094,8 @@ bool gfx_tri1_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({ C1(17, 7), C1(9, 7), C1(1, 7) }, false);
+    // gfx->GfxSpTri({ C1(17, 7), C1(9, 7), C1(1, 7) }, false);
+    gfx->mTriangleIndices.insert(gfx->mTriangleIndices.end(), { C1(17, 7), C1(9, 7), C1(1, 7) });
 
     return false;
 }
@@ -3102,7 +3104,8 @@ bool gfx_tri1_handler_f3d(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({ C1(16, 8) / 10, C1(8, 8) / 10, C1(0, 8) / 10 }, false);
+    // gfx->GfxSpTri({ C1(16, 8) / 10, C1(8, 8) / 10, C1(0, 8) / 10 }, false);
+    gfx->mTriangleIndices.insert(gfx->mTriangleIndices.end(), { C1(16, 8) / 10, C1(8, 8) / 10, C1(0, 8) / 10 });
 
     return false;
 }
@@ -3112,7 +3115,9 @@ bool gfx_tri2_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({ C0(17, 7), C0(9, 7), C0(1, 7), C1(17, 7), C1(9, 7), C1(1, 7) }, false);
+    // gfx->GfxSpTri({ C0(17, 7), C0(9, 7), C0(1, 7), C1(17, 7), C1(9, 7), C1(1, 7) }, false);
+    gfx->mTriangleIndices.insert(gfx->mTriangleIndices.end(),
+                                 { C0(17, 7), C0(9, 7), C0(1, 7), C1(17, 7), C1(9, 7), C1(1, 7) });
     return false;
 }
 
@@ -3973,6 +3978,37 @@ static void gfx_step() {
         SPDLOG_INFO(TRACE, (uint8_t)opcode, cmd->words.trace.file, cmd->words.trace.idx, cmd->words.w0, cmd->words.w1);
     }
 #endif
+
+    if (ucode_handler_index == UcodeHandlers::ucode_f3dex2) {
+        if (opcode == F3DEX2_G_TRI2) {
+            Interpreter* gfx = mInstance.lock().get();
+            gfx->chainOfTriangles = true;
+        }
+
+        if (mInstance.lock().get()->chainOfTriangles && (opcode != F3DEX2_G_TRI2) && (opcode != F3DEX2_G_TRI1)) { // TODO: add index buffer cache
+            Interpreter* gfx = mInstance.lock().get();
+            gfx->chainOfTriangles = false;
+            gfx->GfxSpTri(gfx->mTriangleIndices, false);
+            gfx->mTriangleIndices.clear();
+        }
+    } else if (ucode_handler_index == UcodeHandlers::ucode_f3dex ||
+               ucode_handler_index == UcodeHandlers::ucode_f3dexb || ucode_handler_index == UcodeHandlers::ucode_f3d ||
+               ucode_handler_index == UcodeHandlers::ucode_f3db) {
+        if (opcode == F3DEX_G_TRI2 || opcode == F3DEX_G_TRI1) {
+            Interpreter* gfx = mInstance.lock().get();
+            gfx->chainOfTriangles = true;
+        }
+
+        if (mInstance.lock().get()->chainOfTriangles && (opcode != F3DEX_G_TRI2) && (opcode != F3DEX_G_TRI1)) { // TODO: add index buffer cache
+            Interpreter* gfx = mInstance.lock().get();
+            gfx->chainOfTriangles = false;
+            if (gfx->mTriangleIndices.size() > 80) {
+                printf("Warning: SpTri called with more than 100 indices, this is likely a bug in the ucode handler.\n");
+            }
+            gfx->GfxSpTri(gfx->mTriangleIndices, false);
+            gfx->mTriangleIndices.clear();
+        }
+    }
 
     if (opcode == F3DEX2_G_LOAD_UCODE) {
         gfx_set_ucode_handler((UcodeHandlers)(cmd->words.w0 & 0xFFFFFF));
