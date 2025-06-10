@@ -41,6 +41,12 @@ struct texData {
     float texSize[2];
 };
 
+struct n64Vertex {
+    float pos[4];
+    float color[4];
+    float texCoord[2];
+};
+
 struct ShaderProgramLLGL {
     bool useAlpha;
     bool use_fog;
@@ -59,7 +65,7 @@ struct ShaderProgramLLGL {
     std::optional<int> bindingClamp[2][2];
     std::optional<int> bindingTexData[2];
     LLGL::VertexFormat vertexFormat;
-    LLGL::PipelineState* pipeline[2][2]; // [depth disabled][zmode decal]
+    LLGL::PipelineState* pipeline[2][2][3]; // [depth disabled][zmode decal][cull mode]
 };
 class GfxRenderingAPILLGL {
   public:
@@ -82,7 +88,8 @@ class GfxRenderingAPILLGL {
     void SetViewport(int x, int y, int width, int height);
     void SetScissor(int x, int y, int width, int height);
     void SetUseAlpha(bool useAlpha);
-    void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2]);
+    void LoadVertices(n64Vertex* vertices, int offset, size_t num_vertices);
+    void DrawTriangles(int idx1, int idx2, int idx3, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2], int cull_mode);
     void Init();
     void OnResize();
     void StartFrame();
@@ -135,6 +142,9 @@ class GfxRenderingAPILLGL {
     LLGL::Buffer* texDataBuffer[2];
     int current_framebuffer_id = 0;
     GfxWindowBackend* mWindowBackend = nullptr;
+    LLGL::VertexFormat vertexFormat;
+    LLGL::Buffer* vertexBuffer = nullptr;
+    LLGL::Buffer* indexBuffer = nullptr;
 };
 } // namespace Fast
 

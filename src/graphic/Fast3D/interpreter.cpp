@@ -1149,6 +1149,7 @@ void Interpreter::AdjustWidthHeightForScale(uint32_t& width, uint32_t& height, u
 }
 
 void Interpreter::GfxSpVertex(size_t n_vertices, size_t dest_index, const F3DVtx* vertices) {
+    size_t original_dest_index = dest_index;
     for (size_t i = 0; i < n_vertices; i++, dest_index++) {
         const F3DVtx_t* v = &vertices[i].v;
         const F3DVtx_tn* vn = &vertices[i].n;
@@ -1292,25 +1293,6 @@ void Interpreter::GfxSpVertex(size_t n_vertices, size_t dest_index, const F3DVtx
         d->u = U;
         d->v = V;
 
-        // trivial clip rejection
-        d->clip_rej = 0;
-        if (x < -w) {
-            d->clip_rej |= 1; // CLIP_LEFT
-        }
-        if (x > w) {
-            d->clip_rej |= 2; // CLIP_RIGHT
-        }
-        if (y < -w) {
-            d->clip_rej |= 4; // CLIP_BOTTOM
-        }
-        if (y > w) {
-            d->clip_rej |= 8; // CLIP_TOP
-        }
-        // if (z < -w) d->clip_rej |= 16; // CLIP_NEAR
-        if (z > w) {
-            d->clip_rej |= 32; // CLIP_FAR
-        }
-
         d->x = x;
         d->y = y;
         d->z = z;
@@ -1334,6 +1316,31 @@ void Interpreter::GfxSpVertex(size_t n_vertices, size_t dest_index, const F3DVtx
             d->color.a = v->cn[3];
         }
     }
+
+    dest_index = original_dest_index;
+
+    struct GfxClipParameters clip_parameters = mRapi->GetClipParameters();
+
+    n64Vertex gpu_vertices[n_vertices];
+    for (size_t i = 0; i < n_vertices; i++) {
+        const struct LoadedVertex* v = &mRsp->loaded_vertices[dest_index + i];
+        float z = v->z, w = v->w;
+        if (clip_parameters.z_is_from_0_to_1) {
+            z = (z + w) / 2.0f;
+        }
+        // Vertex color
+        gpu_vertices[i].pos[0] = v->x;
+        gpu_vertices[i].pos[1] = clip_parameters.invertY ? -v->y : v->y;
+        gpu_vertices[i].pos[2] = z;
+        gpu_vertices[i].pos[3] = w;
+        gpu_vertices[i].color[0] = v->color.r / 255.0f;
+        gpu_vertices[i].color[1] = v->color.g / 255.0f;
+        gpu_vertices[i].color[2] = v->color.b / 255.0f;
+        gpu_vertices[i].color[3] = v->color.a / 255.0f;
+        gpu_vertices[i].texCoord[0] = v->u / 32.0f;
+        gpu_vertices[i].texCoord[1] = v->v / 32.0f;
+    }
+    mRapi->LoadVertices(gpu_vertices, dest_index, n_vertices);
 }
 
 void Interpreter::GfxSpModifyVertex(uint16_t vtx_idx, uint8_t where, uint32_t val) {
@@ -1349,54 +1356,22 @@ void Interpreter::GfxSpModifyVertex(uint16_t vtx_idx, uint8_t where, uint32_t va
 
 void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx, bool is_rect) {
     struct LoadedVertex* v1 = &mRsp->loaded_vertices[vtx1_idx];
-    struct LoadedVertex* v2 = &mRsp->loaded_vertices[vtx2_idx];
-    struct LoadedVertex* v3 = &mRsp->loaded_vertices[vtx3_idx];
-    struct LoadedVertex* v_arr[3] = { v1, v2, v3 };
 
     // if (rand()%2) return;
-
-    if (v1->clip_rej & v2->clip_rej & v3->clip_rej) {
-        // The whole triangle lies outside the visible area
-        return;
-    }
 
     const uint32_t cull_both = get_attr(CULL_BOTH);
     const uint32_t cull_front = get_attr(CULL_FRONT);
     const uint32_t cull_back = get_attr(CULL_BACK);
 
-    if ((mRsp->geometry_mode & cull_both) != 0) {
-        float dx1 = v1->x / (v1->w) - v2->x / (v2->w);
-        float dy1 = v1->y / (v1->w) - v2->y / (v2->w);
-        float dx2 = v3->x / (v3->w) - v2->x / (v2->w);
-        float dy2 = v3->y / (v3->w) - v2->y / (v2->w);
-        float cross = dx1 * dy2 - dy1 * dx2;
+    auto cull_type = mRsp->geometry_mode & cull_both;
 
-        if ((v1->w < 0) ^ (v2->w < 0) ^ (v3->w < 0)) {
-            // If one vertex lies behind the eye, negating cross will give the correct result.
-            // If all vertices lie behind the eye, the triangle will be rejected anyway.
-            cross = -cross;
-        }
-
-        // If inverted culling is requested, negate the cross
-        if (ucode_handler_index == UcodeHandlers::ucode_f3dex2 &&
-            (mRsp->extra_geometry_mode & G_EX_INVERT_CULLING) == 1) {
-            cross = -cross;
-        }
-
-        auto cull_type = mRsp->geometry_mode & cull_both;
-
-        if (cull_type == cull_front) {
-            if (cross <= 0) {
-                return;
-            }
-        } else if (cull_type == cull_back) {
-            if (cross >= 0) {
-                return;
-            }
-        } else if (cull_type == cull_both) {
-            // Why is this even an option?
-            return;
-        }
+    LLGL::CullMode cull = LLGL::CullMode::Disabled;
+    if (cull_type == cull_front) {
+        cull = LLGL::CullMode::Back;
+    } else if (cull_type == cull_back) {
+        cull = LLGL::CullMode::Front;
+    } else if (cull_type == cull_both) {
+        cull = LLGL::CullMode::Disabled;
     }
 
     bool depth_test = (mRsp->geometry_mode & G_ZBUFFER) == G_ZBUFFER;
@@ -1600,8 +1575,6 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
 
     mRapi->ShaderGetInfo(prg, &numInputs, usedTextures);
 
-    struct GfxClipParameters clip_parameters = mRapi->GetClipParameters();
-
     float clamp[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
     texData texDatas[2] = { 0 };
 
@@ -1630,29 +1603,7 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
         }
     }
 
-    for (int i = 0; i < 3; i++) {
-        float z = v_arr[i]->z, w = v_arr[i]->w;
-        if (clip_parameters.z_is_from_0_to_1) {
-            z = (z + w) / 2.0f;
-        }
-
-        mBufVbo[mBufVboLen++] = v_arr[i]->x;
-        mBufVbo[mBufVboLen++] = clip_parameters.invertY ? -v_arr[i]->y : v_arr[i]->y;
-        mBufVbo[mBufVboLen++] = z;
-        mBufVbo[mBufVboLen++] = w;
-
-        // Vertex color
-        mBufVbo[mBufVboLen++] = v_arr[i]->color.r / 255.0f;
-        mBufVbo[mBufVboLen++] = v_arr[i]->color.g / 255.0f;
-        mBufVbo[mBufVboLen++] = v_arr[i]->color.b / 255.0f;
-        mBufVbo[mBufVboLen++] = v_arr[i]->color.a / 255.0f; // alpha
-
-        // uv
-        mBufVbo[mBufVboLen++] = v_arr[i]->u / 32.0f; // texcoord0
-        mBufVbo[mBufVboLen++] = v_arr[i]->v / 32.0f; // texcoord1
-    }
-
-    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp, comb, clamp, texDatas);
+    mRapi->DrawTriangles(vtx1_idx, vtx2_idx, vtx3_idx, v1->w, mRdp, comb, clamp, texDatas, (int) cull);
     mBufVboLen = 0;
     mBufVboNumTris = 0;
 }
@@ -2184,6 +2135,32 @@ void Interpreter::GfxDrawRectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_
     mRdp->viewport = default_viewport;
     mRdp->viewport_or_scissor_changed = true;
     mRsp->geometry_mode = 0;
+
+    int dest_index = MAX_VERTICES;
+    size_t n_vertices = 4;
+
+    struct GfxClipParameters clip_parameters = mRapi->GetClipParameters();
+
+    n64Vertex gpu_vertices[n_vertices];
+    for (size_t i = 0; i < n_vertices; i++) {
+        const struct LoadedVertex* v = &mRsp->loaded_vertices[dest_index + i];
+        float z = v->z, w = v->w;
+        if (clip_parameters.z_is_from_0_to_1) {
+            z = (z + w) / 2.0f;
+        }
+        // Vertex color
+        gpu_vertices[i].pos[0] = v->x;
+        gpu_vertices[i].pos[1] = clip_parameters.invertY ? -v->y : v->y;
+        gpu_vertices[i].pos[2] = z;
+        gpu_vertices[i].pos[3] = w;
+        gpu_vertices[i].color[0] = v->color.r / 255.0f;
+        gpu_vertices[i].color[1] = v->color.g / 255.0f;
+        gpu_vertices[i].color[2] = v->color.b / 255.0f;
+        gpu_vertices[i].color[3] = v->color.a / 255.0f;
+        gpu_vertices[i].texCoord[0] = v->u / 32.0f;
+        gpu_vertices[i].texCoord[1] = v->v / 32.0f;
+    }
+    mRapi->LoadVertices(gpu_vertices, dest_index, n_vertices);
 
     GfxSpTri1(MAX_VERTICES + 0, MAX_VERTICES + 1, MAX_VERTICES + 3, true);
     GfxSpTri1(MAX_VERTICES + 1, MAX_VERTICES + 2, MAX_VERTICES + 3, true);

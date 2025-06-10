@@ -575,20 +575,23 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
     LLGL::GraphicsPipelineDescriptor pipelineDesc;
     for (int depth_bool = 0; depth_bool < 2; depth_bool++) {
         for (int write_depth_bool = 0; write_depth_bool < 2; write_depth_bool++) {
-            if (depth_bool == 0 && write_depth_bool == 0) {
-                auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf,
-                                                pipelineDesc, pipeline_layout);
-                prg->pipeline[0][0] = pipeline;
-            } else {
-                pipelineDesc.depth.writeEnabled = write_depth_bool;
-                pipelineDesc.depth.testEnabled = depth_bool;
-                if (!depth_bool) {
-                    pipelineDesc.depth.compareOp = LLGL::CompareOp::AlwaysPass;
+            for (int cull_mode = 0; cull_mode < 3; cull_mode++) {
+                if (depth_bool == 0 && write_depth_bool == 0 && cull_mode == 0) {
+                    auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf,
+                        pipelineDesc, pipeline_layout);
+                        prg->pipeline[0][0][0] = pipeline;
                 } else {
-                    pipelineDesc.depth.compareOp = LLGL::CompareOp::Less;
+                    pipelineDesc.rasterizer.cullMode = (LLGL::CullMode)cull_mode;
+                    pipelineDesc.depth.writeEnabled = write_depth_bool;
+                    pipelineDesc.depth.testEnabled = depth_bool;
+                    if (!depth_bool) {
+                        pipelineDesc.depth.compareOp = LLGL::CompareOp::AlwaysPass;
+                    } else {
+                        pipelineDesc.depth.compareOp = LLGL::CompareOp::Less;
+                    }
+                    auto pipeline = duplicate_pipeline(llgl_renderer, pipelineDesc);
+                    prg->pipeline[depth_bool][write_depth_bool][cull_mode] = pipeline;
                 }
-                auto pipeline = duplicate_pipeline(llgl_renderer, pipelineDesc);
-                prg->pipeline[depth_bool][write_depth_bool] = pipeline;
             }
         }
     }
@@ -781,19 +784,17 @@ void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) 
 void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2]) {
-    LLGL::BufferDescriptor vboDesc;
-    {
-        vboDesc.bindFlags = LLGL::BindFlags::VertexBuffer;
-        vboDesc.size = buf_vbo_len * sizeof(float);
-        vboDesc.vertexAttribs = mCurrentShaderProgram->vertexFormat.attributes;
-    }
-
-    LLGL::Buffer* vertexBuffer = llgl_renderer->CreateBuffer(vboDesc, buf_vbo);
-
+void Fast::GfxRenderingAPILLGL::LoadVertices(n64Vertex* vertices, int offset, size_t num_vertices) {
+    llgl_cmdBuffer->UpdateBuffer(*vertexBuffer, offset * sizeof(n64Vertex), vertices, num_vertices * sizeof(n64Vertex));
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
+}
+
+void Fast::GfxRenderingAPILLGL::DrawTriangles(int idx1, int idx2, int idx3, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2], int cull_mode) {
+    uint32_t index[3] = { idx1, idx2, idx3 };
+    llgl_cmdBuffer->UpdateBuffer(*indexBuffer, 0, index, sizeof(index));
+    llgl_cmdBuffer->SetIndexBuffer(*indexBuffer, LLGL::Format::R32UInt);
     llgl_cmdBuffer->SetPipelineState(
-        *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1]);
+        *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]);
 
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
@@ -849,7 +850,7 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
                     if (rdp->other_mode_l & G_TL_LOD) {
                         // "Hack" that works for Bowser - Peach painting
                         // float distance_frac = (v1->w - 3000.0f) / 3000.0f;
-                        float distance_frac = (buf_vbo[3] - 3000.0f) / 3000.0f;
+                        float distance_frac = (dist - 3000.0f) / 3000.0f;
                         if (distance_frac < 0.0f) {
                             distance_frac = 0.0f;
                         }
@@ -929,8 +930,7 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
         }
     }
 
-    llgl_cmdBuffer->Draw(3 * buf_vbo_num_tris, 0);
-    garbage_collection_buffers.push_back(vertexBuffer);
+    llgl_cmdBuffer->DrawIndexed(3, 0);
 }
 
 void Fast::GfxRenderingAPILLGL::Init() {
@@ -982,8 +982,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
         bufferDescGrayScale.bindFlags = LLGL::BindFlags::ConstantBuffer;
         bufferDescGrayScale.size = 4 * sizeof(float);
     }
-    float rdp_grayscale_color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    grayScaleBuffer = llgl_renderer->CreateBuffer(bufferDescGrayScale, rdp_grayscale_color);
+    grayScaleBuffer = llgl_renderer->CreateBuffer(bufferDescGrayScale);
 
     bool linear_filter = false;
     int cms = G_TX_NOMIRROR | G_TX_WRAP;
@@ -1003,40 +1002,36 @@ void Fast::GfxRenderingAPILLGL::Init() {
         current_texture_ids[tile] = 0;
     }
 
-    float initial_input[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     LLGL::BufferDescriptor inputDesc;
     {
         inputDesc.bindFlags = LLGL::BindFlags::ConstantBuffer;
-        inputDesc.size = sizeof(initial_input);
+        inputDesc.size = sizeof(float) * 4;
     }
     for (int i = 0; i < 8; i++) {
         inputDesc.debugName = "shader_input";
-        shader_input[i] = llgl_renderer->CreateBuffer(inputDesc, initial_input);
+        shader_input[i] = llgl_renderer->CreateBuffer(inputDesc);
     }
 
-    float initial_fog[3] = { 0.0f, 0.0f, 0.0f };
     LLGL::BufferDescriptor fogDesc;
     {
         fogDesc.debugName = "fog_color";
         fogDesc.bindFlags = LLGL::BindFlags::ConstantBuffer;
-        fogDesc.size = sizeof(initial_fog);
+        fogDesc.size = sizeof(float) * 3;
     }
-    fogColorBuffer = llgl_renderer->CreateBuffer(fogDesc, initial_fog);
+    fogColorBuffer = llgl_renderer->CreateBuffer(fogDesc);
     
-    float clamp = 0.0f;
     LLGL::BufferDescriptor clampDesc;
     {
         clampDesc.debugName = "tex_clamp";
         clampDesc.bindFlags = LLGL::BindFlags::ConstantBuffer;
-        clampDesc.size = sizeof(clamp);
+        clampDesc.size = sizeof(float);
     }
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
-            clampBuffer[i][j] = llgl_renderer->CreateBuffer(clampDesc, &clamp);
+            clampBuffer[i][j] = llgl_renderer->CreateBuffer(clampDesc);
         }
     }
 
-    texData default_tex_data = { 0 };
     LLGL::BufferDescriptor default_tex_desc;
     {
         default_tex_desc.debugName = "tex_data";
@@ -1044,8 +1039,35 @@ void Fast::GfxRenderingAPILLGL::Init() {
         default_tex_desc.size = sizeof(texData);
     }
     for (int i = 0; i < 2; i++) {
-        texDataBuffer[i] = llgl_renderer->CreateBuffer(default_tex_desc, &default_tex_data);
+        texDataBuffer[i] = llgl_renderer->CreateBuffer(default_tex_desc);
     }
+
+    vertexFormat.AppendAttribute(LLGL::VertexAttribute(
+        "position", 0, LLGL::Format::RGBA32Float
+    ));
+    vertexFormat.AppendAttribute(LLGL::VertexAttribute(
+        "aColor", 1, LLGL::Format::RGBA32Float
+    ));
+    vertexFormat.AppendAttribute(LLGL::VertexAttribute(
+        "aTexCoord", 2, LLGL::Format::RG32Float
+    ));
+    vertexFormat.SetStride(sizeof(n64Vertex));
+    LLGL::BufferDescriptor vboDesc;
+    {
+        vboDesc.debugName = "vertex_buffer";
+        vboDesc.bindFlags = LLGL::BindFlags::VertexBuffer;
+        vboDesc.size = 86 * sizeof(n64Vertex); // don't remember precisly the size but 86 should be fine
+        vboDesc.vertexAttribs = vertexFormat.attributes;
+    }
+    vertexBuffer = llgl_renderer->CreateBuffer(vboDesc);
+    LLGL::BufferDescriptor indexBufferDesc;
+    {
+        indexBufferDesc.debugName = "index_buffer";
+        indexBufferDesc.bindFlags = LLGL::BindFlags::IndexBuffer;
+        indexBufferDesc.size = sizeof(std::uint32_t)*3;
+        indexBufferDesc.format = LLGL::Format::R32UInt;
+    }
+    indexBuffer = llgl_renderer->CreateBuffer(indexBufferDesc);
 }
 
 void Fast::GfxRenderingAPILLGL::OnResize(void) {
