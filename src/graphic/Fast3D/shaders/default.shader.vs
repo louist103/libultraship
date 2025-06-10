@@ -8,10 +8,17 @@ layout(location = @{get_vs_input_location("position", "RGBA32Float")}) in vec4 p
 layout(location = @{get_vs_input_location("aColor", "RGBA32Float")}) in vec4 aColor;
 layout(location = @{get_output_location()}) out vec4 vColor;
 
+layout(location = @{get_vs_input_location("aTexCoord", "RG32Float")}) in vec2 aTexCoord;
+
 @for(i in 0..2)
     @if(o_textures[i])
-        layout(location = @{get_vs_input_location("aTexCoord" + to_string(i), "RG32Float")}) in vec2 aTexCoord@{i};
         layout(location = @{get_output_location()}) out vec2 vTexCoord@{i};
+        layout(std140, binding = @{get_binding_index("texData" + to_string(i), "Buffer", "ConstantBuffer")}) uniform texData@{i} {
+            ivec2 texShift@{i};
+            vec2 texUl@{i};
+            bool texIsRect@{i};
+            vec2 texSize@{i};
+        };
     @end
 @end
 
@@ -22,10 +29,43 @@ out gl_PerVertex {
 void main() {
     @for(i in 0..2)
         @if(o_textures[i])
-            vTexCoord@{i} = aTexCoord@{i};
+            vec2 uv = aTexCoord;
+
+            // Mask for conditions
+            bvec2 hasShift = notEqual(texShift@{i}, ivec2(0));
+            bvec2 isSmallShift = lessThanEqual(texShift@{i}, ivec2(10));
+            bvec2 isLargeShift = greaterThan(texShift@{i}, ivec2(10));
+
+            // Vectorized application of shifts
+            vec2 smallShiftDiv = uv / vec2(1 << texShift@{i}.x, 1 << texShift@{i}.y);
+            vec2 largeShiftMul = uv * vec2(1 << (16 - texShift@{i}.x), 1 << (16 - texShift@{i}.y));
+
+            // Vectorized conditional selection
+            uv = mix(uv, smallShiftDiv, vec2(hasShift) * vec2(isSmallShift));
+            uv = mix(uv, largeShiftMul, vec2(hasShift) * vec2(isLargeShift));
+            // if (shifts != 0) {
+            //     if (shifts <= 10) {
+            //         u /= 1 << shifts;
+            //     } else {
+            //         u *= 1 << (16 - shifts);
+            //     }
+            // }
+            // if (shiftt != 0) {
+            //     if (shiftt <= 10) {
+            //         v /= 1 << shiftt;
+            //     } else {
+            //         v *= 1 << (16 - shiftt);
+            //     }
+            // }
+            uv -= texUl@{i} / 4.0f;
+
+            if (texIsRect@{i}) {
+                uv += 0.5f;
+            }
+            vTexCoord@{i} = uv / texSize@{i};
         @end
     @end
-    
+
     vColor = aColor;
     gl_Position = position;
 }

@@ -1603,6 +1603,32 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
     struct GfxClipParameters clip_parameters = mRapi->GetClipParameters();
 
     float clamp[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+    texData texDatas[2] = { 0 };
+
+    for (int t = 0; t < 2; t++) {
+        if (!usedTextures[t]) {
+            continue;
+        }
+
+        texDatas[t].texShift[0] = mRdp->texture_tile[mRdp->first_tile_index + t].shifts;
+        texDatas[t].texShift[1] = mRdp->texture_tile[mRdp->first_tile_index + t].shiftt;
+        texDatas[t].texUl[0] = mRdp->texture_tile[mRdp->first_tile_index + t].uls / 4.0f;
+        texDatas[t].texUl[1] = mRdp->texture_tile[mRdp->first_tile_index + t].ult / 4.0f;
+        texDatas[t].texIsRect = ((mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) && !is_rect;
+        texDatas[t].texSize[0] = tex_width[t];
+        texDatas[t].texSize[1] = tex_height[t];
+
+        bool clampS = tm & (1 << 2 * t);
+        bool clampT = tm & (1 << 2 * t + 1);
+
+        if (clampS) {
+            clamp[t][0] = (tex_width2[t] - 0.5f) / tex_width[t];
+        }
+
+        if (clampT) {
+            clamp[t][1] = (tex_height2[t] - 0.5f) / tex_height[t];
+        }
+    }
 
     for (int i = 0; i < 3; i++) {
         float z = v_arr[i]->z, w = v_arr[i]->w;
@@ -1621,58 +1647,12 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
         mBufVbo[mBufVboLen++] = v_arr[i]->color.b / 255.0f;
         mBufVbo[mBufVboLen++] = v_arr[i]->color.a / 255.0f; // alpha
 
-        for (int t = 0; t < 2; t++) {
-            if (!usedTextures[t]) {
-                continue;
-            }
-            float u = v_arr[i]->u / 32.0f;
-            float v = v_arr[i]->v / 32.0f;
-
-            int shifts = mRdp->texture_tile[mRdp->first_tile_index + t].shifts;
-            int shiftt = mRdp->texture_tile[mRdp->first_tile_index + t].shiftt;
-            if (shifts != 0) {
-                if (shifts <= 10) {
-                    u /= 1 << shifts;
-                } else {
-                    u *= 1 << (16 - shifts);
-                }
-            }
-            if (shiftt != 0) {
-                if (shiftt <= 10) {
-                    v /= 1 << shiftt;
-                } else {
-                    v *= 1 << (16 - shiftt);
-                }
-            }
-
-            u -= mRdp->texture_tile[mRdp->first_tile_index + t].uls / 4.0f;
-            v -= mRdp->texture_tile[mRdp->first_tile_index + t].ult / 4.0f;
-
-            if ((mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) {
-                // Linear filter adds 0.5f to the coordinates
-                if (!is_rect) {
-                    u += 0.5f;
-                    v += 0.5f;
-                }
-            }
-
-            mBufVbo[mBufVboLen++] = u / tex_width[t];
-            mBufVbo[mBufVboLen++] = v / tex_height[t];
-
-            bool clampS = tm & (1 << 2 * t);
-            bool clampT = tm & (1 << 2 * t + 1);
-
-            if (clampS) {
-                clamp[t][0] = (tex_width2[t] - 0.5f) / tex_width[t];
-            }
-
-            if (clampT) {
-                clamp[t][1] = (tex_height2[t] - 0.5f) / tex_height[t];
-            }
-        }
+        // uv
+        mBufVbo[mBufVboLen++] = v_arr[i]->u / 32.0f; // texcoord0
+        mBufVbo[mBufVboLen++] = v_arr[i]->v / 32.0f; // texcoord1
     }
 
-    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp, comb, clamp);
+    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp, comb, clamp, texDatas);
     mBufVboLen = 0;
     mBufVboNumTris = 0;
 }
