@@ -29,20 +29,20 @@ out gl_PerVertex {
 void main() {
     @for(i in 0..2)
         @if(o_textures[i])
-            vec2 uv = aTexCoord;
+            vec2 uv@{i} = aTexCoord;
 
             // Mask for conditions
-            bvec2 hasShift = notEqual(texShift@{i}, ivec2(0));
-            bvec2 isSmallShift = lessThanEqual(texShift@{i}, ivec2(10));
-            bvec2 isLargeShift = greaterThan(texShift@{i}, ivec2(10));
+            bvec2 hasShift@{i} = notEqual(texShift@{i}, ivec2(0));
+            bvec2 isSmallShift@{i} = lessThanEqual(texShift@{i}, ivec2(10));
+            bvec2 isLargeShift@{i} = greaterThan(texShift@{i}, ivec2(10));
 
             // Vectorized application of shifts
-            vec2 smallShiftDiv = uv / vec2(1 << texShift@{i}.x, 1 << texShift@{i}.y);
-            vec2 largeShiftMul = uv * vec2(1 << (16 - texShift@{i}.x), 1 << (16 - texShift@{i}.y));
+            vec2 smallShiftDiv@{i} = uv@{i} / vec2(1 << texShift@{i}.x, 1 << texShift@{i}.y);
+            vec2 largeShiftMul@{i} = uv@{i} * vec2(1 << (16 - texShift@{i}.x), 1 << (16 - texShift@{i}.y));
 
             // Vectorized conditional selection
-            uv = mix(uv, smallShiftDiv, vec2(hasShift) * vec2(isSmallShift));
-            uv = mix(uv, largeShiftMul, vec2(hasShift) * vec2(isLargeShift));
+            uv@{i} = mix(uv@{i}, smallShiftDiv@{i}, vec2(hasShift@{i}) * vec2(isSmallShift@{i}));
+            uv@{i} = mix(uv@{i}, largeShiftMul@{i}, vec2(hasShift@{i}) * vec2(isLargeShift@{i}));
             // if (shifts != 0) {
             //     if (shifts <= 10) {
             //         u /= 1 << shifts;
@@ -57,12 +57,12 @@ void main() {
             //         v *= 1 << (16 - shiftt);
             //     }
             // }
-            uv -= texUl@{i} / 4.0f;
+            uv@{i} -= texUl@{i} / 4.0f;
 
             if (texIsRect@{i}) {
-                uv += 0.5f;
+                uv@{i} += 0.5f;
             }
-            vTexCoord@{i} = uv / texSize@{i};
+            vTexCoord@{i} = uv@{i} / texSize@{i};
         @end
     @end
 

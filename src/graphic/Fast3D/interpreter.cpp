@@ -1603,7 +1603,7 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
         }
     }
 
-    mRapi->DrawTriangles(idx, v1->w, mRdp, comb, clamp, texDatas, (int) cull);
+    mRapi->DrawTriangles(idx, v1->w, mRdp, comb, clamp, texDatas, (int)cull);
     mBufVboLen = 0;
     mBufVboNumTris = 0;
 }
@@ -2031,6 +2031,8 @@ void Interpreter::GfxDpSetGrayscaleColor(uint8_t r, uint8_t g, uint8_t b, uint8_
     mRdp->grayscale_color.g = g;
     mRdp->grayscale_color.b = b;
     mRdp->grayscale_color.a = a;
+    float gray[4] = { r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+    mRapi->UpdateGrayScaleColor(gray);
 }
 
 void Interpreter::GfxDpSetEnvColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
@@ -2053,6 +2055,8 @@ void Interpreter::GfxDpSetFogColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     mRdp->fog_color.g = g;
     mRdp->fog_color.b = b;
     mRdp->fog_color.a = a;
+    float fog_color[4] = { r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f };
+    mRapi->UpdateFogColor(fog_color);
 }
 
 void Interpreter::GfxDpSetBlendColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
@@ -2162,7 +2166,9 @@ void Interpreter::GfxDrawRectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_
     }
     mRapi->LoadVertices(gpu_vertices, dest_index, n_vertices);
 
-    GfxSpTri({MAX_VERTICES + 0, MAX_VERTICES + 1, MAX_VERTICES + 3, MAX_VERTICES + 1, MAX_VERTICES + 2, MAX_VERTICES + 3}, true);
+    GfxSpTri(
+        { MAX_VERTICES + 0, MAX_VERTICES + 1, MAX_VERTICES + 3, MAX_VERTICES + 1, MAX_VERTICES + 2, MAX_VERTICES + 3 },
+        true);
 
     mRsp->geometry_mode = geometry_mode_saved;
     mRdp->viewport = viewport_saved;
@@ -3069,7 +3075,7 @@ bool gfx_tri1_otr_handler_f3dex2(F3DGfx** cmd0) {
     uint8_t v00 = (uint8_t)(cmd->words.w0 & 0x0000FFFF);
     uint8_t v01 = (uint8_t)(cmd->words.w1 >> 16);
     uint8_t v02 = (uint8_t)(cmd->words.w1 & 0x0000FFFF);
-    gfx->GfxSpTri({v00, v01, v02}, false);
+    gfx->GfxSpTri({ v00, v01, v02 }, false);
 
     return false;
 }
@@ -3078,7 +3084,7 @@ bool gfx_tri1_handler_f3dex2(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2}, false);
+    gfx->GfxSpTri({ C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2 }, false);
 
     return false;
 }
@@ -3087,7 +3093,7 @@ bool gfx_tri1_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({C1(17, 7), C1(9, 7), C1(1, 7)}, false);
+    gfx->GfxSpTri({ C1(17, 7), C1(9, 7), C1(1, 7) }, false);
 
     return false;
 }
@@ -3096,7 +3102,7 @@ bool gfx_tri1_handler_f3d(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({C1(16, 8) / 10, C1(8, 8) / 10, C1(0, 8) / 10}, false);
+    gfx->GfxSpTri({ C1(16, 8) / 10, C1(8, 8) / 10, C1(0, 8) / 10 }, false);
 
     return false;
 }
@@ -3106,7 +3112,7 @@ bool gfx_tri2_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({C0(17, 7), C0(9, 7), C0(1, 7), C1(17, 7), C1(9, 7), C1(1, 7)}, false);
+    gfx->GfxSpTri({ C0(17, 7), C0(9, 7), C0(1, 7), C1(17, 7), C1(9, 7), C1(1, 7) }, false);
     return false;
 }
 
@@ -3114,7 +3120,7 @@ bool gfx_quad_handler_f3dex2(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2, C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2}, false);
+    gfx->GfxSpTri({ C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2, C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2 }, false);
     return false;
 }
 
@@ -3122,7 +3128,7 @@ bool gfx_quad_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri({C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2, C1(16, 8) / 2, C1(0, 8) / 2, C1(24, 8) / 2}, false);
+    gfx->GfxSpTri({ C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2, C1(16, 8) / 2, C1(0, 8) / 2, C1(24, 8) / 2 }, false);
     return false;
 }
 

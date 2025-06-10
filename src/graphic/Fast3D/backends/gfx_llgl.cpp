@@ -118,7 +118,7 @@ static const char* llgl_shader_item_to_str(uint32_t item, bool with_alpha, bool 
                     return "vColor";
                 } else {
                     return "vColor.rgb";
-            }
+                }
         }
     } else {
         switch (item) {
@@ -578,8 +578,8 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
             for (int cull_mode = 0; cull_mode < 3; cull_mode++) {
                 if (depth_bool == 0 && write_depth_bool == 0 && cull_mode == 0) {
                     auto pipeline = create_pipeline(llgl_renderer, llgl_swapChain, vertexFormat, vs_buf, fs_buf,
-                        pipelineDesc, pipeline_layout);
-                        prg->pipeline[0][0][0] = pipeline;
+                                                    pipelineDesc, pipeline_layout);
+                    prg->pipeline[0][0][0] = pipeline;
                 } else {
                     pipelineDesc.rasterizer.cullMode = (LLGL::CullMode)cull_mode;
                     pipelineDesc.depth.writeEnabled = write_depth_bool;
@@ -789,8 +789,9 @@ void Fast::GfxRenderingAPILLGL::LoadVertices(n64Vertex* vertices, int offset, si
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2], int cull_mode) {
-    llgl_cmdBuffer->UpdateBuffer(*indexBuffer, 0, &index[0], sizeof(int)*index.size());
+void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb,
+                                              float clamp[2][2], texData texDatas[2], int cull_mode) {
+    llgl_cmdBuffer->UpdateBuffer(*indexBuffer, 0, &index[0], sizeof(int) * index.size());
     llgl_cmdBuffer->SetIndexBuffer(*indexBuffer, LLGL::Format::R32UInt);
     llgl_cmdBuffer->SetPipelineState(
         *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]);
@@ -799,20 +800,16 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist
     llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
 
     if (mCurrentShaderProgram->grayScaleBinding.has_value()) {
-        llgl_cmdBuffer->UpdateBuffer(*grayScaleBuffer, 0,
-                                    &rdp->grayscale_color, sizeof(rdp->grayscale_color));
         llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
     }
 
     for (int i = 0; i < 2; i++) {
         if (mCurrentShaderProgram->bindingClamp[i][0].has_value()) {
-            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][0], 0, &clamp[i][0],
-                                        sizeof(float));
+            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][0], 0, &clamp[i][0], sizeof(float));
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][0], *clampBuffer[i][0]);
         }
         if (mCurrentShaderProgram->bindingClamp[i][1].has_value()) {
-            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][1], 0, &clamp[i][1],
-                                        sizeof(float));
+            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][1], 0, &clamp[i][1], sizeof(float));
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][1], *clampBuffer[i][1]);
         }
     }
@@ -874,24 +871,21 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist
             }
             if (k == 0) {
                 float color_[3] = { color->r / 255.0f, color->g / 255.0f, color->b / 255.0f };
-                llgl_cmdBuffer->UpdateBuffer(*shader_input[j], 0, color_,
-                                            sizeof(color_));
+                llgl_cmdBuffer->UpdateBuffer(*shader_input[j], 0, color_, sizeof(color_));
             } else {
                 float alpha = color->a / 255.0f;
-                if (mCurrentShaderProgram->use_fog && comb->shader_input_mapping[0][j] == G_CCMUX_SHADE) { // if (use_fog && color == &v_arr[i]->color) { can make some inaccuracies
+                if (mCurrentShaderProgram->use_fog &&
+                    comb->shader_input_mapping[0][j] ==
+                        G_CCMUX_SHADE) { // if (use_fog && color == &v_arr[i]->color) { can make some inaccuracies
                     // Shade alpha is 100% for fog
                     alpha = 1.0f;
                 }
-                llgl_cmdBuffer->UpdateBuffer(*shader_input[j], sizeof(float) * 3, &alpha,
-                                            sizeof(float));
+                llgl_cmdBuffer->UpdateBuffer(*shader_input[j], sizeof(float) * 3, &alpha, sizeof(float));
             }
         }
     }
 
     if (mCurrentShaderProgram->bindingFogColor.has_value()) {
-        float fog_color[3] = { rdp->fog_color.r / 255.0f, rdp->fog_color.g / 255.0f,
-                               rdp->fog_color.b / 255.0f };
-        llgl_cmdBuffer->UpdateBuffer(*fogColorBuffer, 0, fog_color, sizeof(fog_color));
         llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingFogColor, *fogColorBuffer);
     }
 
@@ -907,8 +901,7 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist
                                         *textures[current_texture_ids[i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTextureSampl[i],
                                         *textures[current_texture_ids[i]].second);
-            llgl_cmdBuffer->UpdateBuffer(*texDataBuffer[i], 0,
-                                        &texDatas[i], sizeof(texData));
+            llgl_cmdBuffer->UpdateBuffer(*texDataBuffer[i], 0, &texDatas[i], sizeof(texData));
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexData[i], *texDataBuffer[i]);
         }
 
@@ -1018,7 +1011,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
         fogDesc.size = sizeof(float) * 3;
     }
     fogColorBuffer = llgl_renderer->CreateBuffer(fogDesc);
-    
+
     LLGL::BufferDescriptor clampDesc;
     {
         clampDesc.debugName = "tex_clamp";
@@ -1041,15 +1034,9 @@ void Fast::GfxRenderingAPILLGL::Init() {
         texDataBuffer[i] = llgl_renderer->CreateBuffer(default_tex_desc);
     }
 
-    vertexFormat.AppendAttribute(LLGL::VertexAttribute(
-        "position", 0, LLGL::Format::RGBA32Float
-    ));
-    vertexFormat.AppendAttribute(LLGL::VertexAttribute(
-        "aColor", 1, LLGL::Format::RGBA32Float
-    ));
-    vertexFormat.AppendAttribute(LLGL::VertexAttribute(
-        "aTexCoord", 2, LLGL::Format::RG32Float
-    ));
+    vertexFormat.AppendAttribute(LLGL::VertexAttribute("position", 0, LLGL::Format::RGBA32Float));
+    vertexFormat.AppendAttribute(LLGL::VertexAttribute("aColor", 1, LLGL::Format::RGBA32Float));
+    vertexFormat.AppendAttribute(LLGL::VertexAttribute("aTexCoord", 2, LLGL::Format::RG32Float));
     vertexFormat.SetStride(sizeof(n64Vertex));
     LLGL::BufferDescriptor vboDesc;
     {
@@ -1063,7 +1050,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
     {
         indexBufferDesc.debugName = "index_buffer";
         indexBufferDesc.bindFlags = LLGL::BindFlags::IndexBuffer;
-        indexBufferDesc.size = sizeof(std::uint32_t)*80;
+        indexBufferDesc.size = sizeof(std::uint32_t) * 80;
         indexBufferDesc.format = LLGL::Format::R32UInt;
     }
     indexBuffer = llgl_renderer->CreateBuffer(indexBufferDesc);
@@ -1285,4 +1272,13 @@ void Fast::GfxRenderingAPILLGL::SetSrgbMode(void) {
 ImTextureID Fast::GfxRenderingAPILLGL::GetTextureById(int id) {
     return nullptr; // TODO fix me
 }
+
+void Fast::GfxRenderingAPILLGL::UpdateFogColor(const float* fog_color) {
+    llgl_cmdBuffer->UpdateBuffer(*fogColorBuffer, 0, fog_color, sizeof(float) * 3);
+}
+
+void Fast::GfxRenderingAPILLGL::UpdateGrayScaleColor(const float* grayscale_color) {
+    llgl_cmdBuffer->UpdateBuffer(*grayScaleBuffer, 0, grayscale_color, sizeof(float) * 4);
+}
+
 } // namespace Fast
