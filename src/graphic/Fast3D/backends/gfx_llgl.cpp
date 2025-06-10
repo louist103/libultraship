@@ -789,9 +789,8 @@ void Fast::GfxRenderingAPILLGL::LoadVertices(n64Vertex* vertices, int offset, si
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(int idx1, int idx2, int idx3, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2], int cull_mode) {
-    uint32_t index[3] = { idx1, idx2, idx3 };
-    llgl_cmdBuffer->UpdateBuffer(*indexBuffer, 0, index, sizeof(index));
+void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2], int cull_mode) {
+    llgl_cmdBuffer->UpdateBuffer(*indexBuffer, 0, &index[0], sizeof(int)*index.size());
     llgl_cmdBuffer->SetIndexBuffer(*indexBuffer, LLGL::Format::R32UInt);
     llgl_cmdBuffer->SetPipelineState(
         *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]);
@@ -930,7 +929,7 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(int idx1, int idx2, int idx3, floa
         }
     }
 
-    llgl_cmdBuffer->DrawIndexed(3, 0);
+    llgl_cmdBuffer->DrawIndexed(index.size(), 0);
 }
 
 void Fast::GfxRenderingAPILLGL::Init() {
@@ -1064,7 +1063,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
     {
         indexBufferDesc.debugName = "index_buffer";
         indexBufferDesc.bindFlags = LLGL::BindFlags::IndexBuffer;
-        indexBufferDesc.size = sizeof(std::uint32_t)*3;
+        indexBufferDesc.size = sizeof(std::uint32_t)*80;
         indexBufferDesc.format = LLGL::Format::R32UInt;
     }
     indexBuffer = llgl_renderer->CreateBuffer(indexBufferDesc);

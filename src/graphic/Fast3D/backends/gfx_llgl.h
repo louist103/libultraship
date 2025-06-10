@@ -89,7 +89,7 @@ class GfxRenderingAPILLGL {
     void SetScissor(int x, int y, int width, int height);
     void SetUseAlpha(bool useAlpha);
     void LoadVertices(n64Vertex* vertices, int offset, size_t num_vertices);
-    void DrawTriangles(int idx1, int idx2, int idx3, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2], int cull_mode);
+    void DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2], texData texDatas[2], int cull_mode);
     void Init();
     void OnResize();
     void StartFrame();

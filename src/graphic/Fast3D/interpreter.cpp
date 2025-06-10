@@ -1354,8 +1354,8 @@ void Interpreter::GfxSpModifyVertex(uint16_t vtx_idx, uint8_t where, uint32_t va
     v->v = t;
 }
 
-void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx, bool is_rect) {
-    struct LoadedVertex* v1 = &mRsp->loaded_vertices[vtx1_idx];
+void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
+    struct LoadedVertex* v1 = &mRsp->loaded_vertices[idx[0]];
 
     // if (rand()%2) return;
 
@@ -1603,7 +1603,7 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
         }
     }
 
-    mRapi->DrawTriangles(vtx1_idx, vtx2_idx, vtx3_idx, v1->w, mRdp, comb, clamp, texDatas, (int) cull);
+    mRapi->DrawTriangles(idx, v1->w, mRdp, comb, clamp, texDatas, (int) cull);
     mBufVboLen = 0;
     mBufVboNumTris = 0;
 }
@@ -2162,8 +2162,7 @@ void Interpreter::GfxDrawRectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_
     }
     mRapi->LoadVertices(gpu_vertices, dest_index, n_vertices);
 
-    GfxSpTri1(MAX_VERTICES + 0, MAX_VERTICES + 1, MAX_VERTICES + 3, true);
-    GfxSpTri1(MAX_VERTICES + 1, MAX_VERTICES + 2, MAX_VERTICES + 3, true);
+    GfxSpTri({MAX_VERTICES + 0, MAX_VERTICES + 1, MAX_VERTICES + 3, MAX_VERTICES + 1, MAX_VERTICES + 2, MAX_VERTICES + 3}, true);
 
     mRsp->geometry_mode = geometry_mode_saved;
     mRdp->viewport = viewport_saved;
@@ -2481,8 +2480,8 @@ void* Interpreter::SegAddr(uintptr_t w1) {
     }
 }
 
-#define C0(pos, width) ((cmd->words.w0 >> (pos)) & ((1U << width) - 1))
-#define C1(pos, width) ((cmd->words.w1 >> (pos)) & ((1U << width) - 1))
+#define C0(pos, width) (int)((cmd->words.w0 >> (pos)) & ((1U << width) - 1))
+#define C1(pos, width) (int)((cmd->words.w1 >> (pos)) & ((1U << width) - 1))
 
 void GfxExecStack::start(F3DGfx* dlist) {
     while (!cmd_stack.empty())
@@ -3070,7 +3069,7 @@ bool gfx_tri1_otr_handler_f3dex2(F3DGfx** cmd0) {
     uint8_t v00 = (uint8_t)(cmd->words.w0 & 0x0000FFFF);
     uint8_t v01 = (uint8_t)(cmd->words.w1 >> 16);
     uint8_t v02 = (uint8_t)(cmd->words.w1 & 0x0000FFFF);
-    gfx->GfxSpTri1(v00, v01, v02, false);
+    gfx->GfxSpTri({v00, v01, v02}, false);
 
     return false;
 }
@@ -3079,7 +3078,7 @@ bool gfx_tri1_handler_f3dex2(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri1(C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2, false);
+    gfx->GfxSpTri({C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2}, false);
 
     return false;
 }
@@ -3088,7 +3087,7 @@ bool gfx_tri1_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri1(C1(17, 7), C1(9, 7), C1(1, 7), false);
+    gfx->GfxSpTri({C1(17, 7), C1(9, 7), C1(1, 7)}, false);
 
     return false;
 }
@@ -3097,7 +3096,7 @@ bool gfx_tri1_handler_f3d(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri1(C1(16, 8) / 10, C1(8, 8) / 10, C1(0, 8) / 10, false);
+    gfx->GfxSpTri({C1(16, 8) / 10, C1(8, 8) / 10, C1(0, 8) / 10}, false);
 
     return false;
 }
@@ -3107,8 +3106,7 @@ bool gfx_tri2_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri1(C0(17, 7), C0(9, 7), C0(1, 7), false);
-    gfx->GfxSpTri1(C1(17, 7), C1(9, 7), C1(1, 7), false);
+    gfx->GfxSpTri({C0(17, 7), C0(9, 7), C0(1, 7), C1(17, 7), C1(9, 7), C1(1, 7)}, false);
     return false;
 }
 
@@ -3116,8 +3114,7 @@ bool gfx_quad_handler_f3dex2(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri1(C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2, false);
-    gfx->GfxSpTri1(C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2, false);
+    gfx->GfxSpTri({C0(16, 8) / 2, C0(8, 8) / 2, C0(0, 8) / 2, C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2}, false);
     return false;
 }
 
@@ -3125,8 +3122,7 @@ bool gfx_quad_handler_f3dex(F3DGfx** cmd0) {
     Interpreter* gfx = mInstance.lock().get();
     F3DGfx* cmd = *cmd0;
 
-    gfx->GfxSpTri1(C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2, false);
-    gfx->GfxSpTri1(C1(16, 8) / 2, C1(0, 8) / 2, C1(24, 8) / 2, false);
+    gfx->GfxSpTri({C1(16, 8) / 2, C1(8, 8) / 2, C1(0, 8) / 2, C1(16, 8) / 2, C1(0, 8) / 2, C1(24, 8) / 2}, false);
     return false;
 }
 
