@@ -40,6 +40,24 @@ layout(binding = @{get_binding_index("fog_color", "Buffer", "ConstantBuffer")}) 
     @if(o_blend[i]) layout(binding = @{get_binding_index("uTexBlendSampl" + to_string(i), "Sampler", "uTexBlend" + to_string(i))}) uniform sampler uTexBlendSampl@{i};
 @end
 
+@for(i in 0..2)
+    @if(o_textures[i])
+        @for(j in 0..2)
+            @if(o_clamp[i][j])
+                @if(j == 0)
+                    layout(binding = @{get_binding_index("vTexClampS" + to_string(i), "Buffer", "ConstantBuffer")}) uniform TexClampS {
+                        float vTexClampS@{i};
+                    };
+                @else
+                    layout(binding = @{get_binding_index("vTexClampT" + to_string(i), "Buffer", "ConstantBuffer")}) uniform TexClampT {
+                        float vTexClampT@{i};
+                    };
+                @end
+            @end
+        @end
+    @end
+@end
+
 // vertex attributes
 
 layout(location = @{get_input_location()}) in vec4 vColor;
@@ -47,15 +65,6 @@ layout(location = @{get_input_location()}) in vec4 vColor;
 @for(i in 0..2)
     @if(o_textures[i])
         layout(location = @{get_input_location()}) in vec2 vTexCoord@{i};
-        @for(j in 0..2)
-            @if(o_clamp[i][j])
-                @if(j == 0)
-                    layout(location = @{get_input_location()}) in float vTexClampS@{i};
-                @else
-                    layout(location = @{get_input_location()}) in float vTexClampT@{i};
-                @end
-            @end
-        @end
     @end
 @end
 

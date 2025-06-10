@@ -48,6 +48,7 @@ struct ShaderProgramLLGL {
     std::optional<int> grayScaleBinding;
     std::optional<int> bindingInput[8];
     std::optional<int> bindingFogColor;
+    std::optional<int> bindingClamp[2][2];
     LLGL::VertexFormat vertexFormat;
     LLGL::PipelineState* pipeline[2][2]; // [depth disabled][zmode decal]
 };
@@ -72,7 +73,7 @@ class GfxRenderingAPILLGL {
     void SetViewport(int x, int y, int width, int height);
     void SetScissor(int x, int y, int width, int height);
     void SetUseAlpha(bool useAlpha);
-    void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb);
+    void DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb, float clamp[2][2]);
     void Init();
     void OnResize();
     void StartFrame();
@@ -121,6 +122,7 @@ class GfxRenderingAPILLGL {
     LLGL::Buffer* noiseScaleBuffer;
     LLGL::Buffer* grayScaleBuffer;
     LLGL::Buffer* fogColorBuffer;
+    LLGL::Buffer* clampBuffer[2][2];
     int current_framebuffer_id = 0;
     GfxWindowBackend* mWindowBackend = nullptr;
 };

@@ -608,6 +608,10 @@ struct ShaderProgram* Fast::GfxRenderingAPILLGL::CreateAndLoadNewShader(uint64_t
                 prg->bindingBlend[j] = i;
             } else if (binding.name.compare("uTexBlendSampl" + std::to_string(j)) == 0) {
                 prg->bindingBlendSampl[j] = i;
+            } else if (binding.name.compare("vTexClampS" + std::to_string(j)) == 0) {
+                prg->bindingClamp[j][0] = i;
+            } else if (binding.name.compare("vTexClampT" + std::to_string(j)) == 0) {
+                prg->bindingClamp[j][1] = i;
             }
         }
         if (binding.name.compare("frame_count") == 0) {
@@ -774,7 +778,7 @@ void Fast::GfxRenderingAPILLGL::SetScissor(int x, int y, int width, int height) 
 void Fast::GfxRenderingAPILLGL::SetUseAlpha(bool use_alpha) {
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb) {
+void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris, RDP* rdp, ColorCombiner* comb, float clamp[2][2]) {
     LLGL::BufferDescriptor vboDesc;
     {
         vboDesc.bindFlags = LLGL::BindFlags::VertexBuffer;
@@ -795,6 +799,19 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_le
         llgl_cmdBuffer->UpdateBuffer(*grayScaleBuffer, 0,
                                     &rdp->grayscale_color, sizeof(rdp->grayscale_color));
         llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (mCurrentShaderProgram->bindingClamp[i][0].has_value()) {
+            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][0], 0, &clamp[i][0],
+                                        sizeof(float));
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][0], *clampBuffer[i][0]);
+        }
+        if (mCurrentShaderProgram->bindingClamp[i][1].has_value()) {
+            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][1], 0, &clamp[i][1],
+                                        sizeof(float));
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][1], *clampBuffer[i][1]);
+        }
     }
 
     for (int j = 0; j < mCurrentShaderProgram->numInputs; j++) {
@@ -993,6 +1010,18 @@ void Fast::GfxRenderingAPILLGL::Init() {
         fogDesc.size = sizeof(initial_fog);
     }
     fogColorBuffer = llgl_renderer->CreateBuffer(fogDesc, initial_fog);
+    
+    float clamp = 0.0f;
+    LLGL::BufferDescriptor clampDesc;
+    {
+        clampDesc.bindFlags = LLGL::BindFlags::ConstantBuffer;
+        clampDesc.size = sizeof(clamp);
+    }
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            clampBuffer[i][j] = llgl_renderer->CreateBuffer(clampDesc, &clamp);
+        }
+    }
 }
 
 void Fast::GfxRenderingAPILLGL::OnResize(void) {

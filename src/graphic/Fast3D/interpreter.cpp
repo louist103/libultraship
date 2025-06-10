@@ -1602,6 +1602,8 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
 
     struct GfxClipParameters clip_parameters = mRapi->GetClipParameters();
 
+    float clamp[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+
     for (int i = 0; i < 3; i++) {
         float z = v_arr[i]->z, w = v_arr[i]->w;
         if (clip_parameters.z_is_from_0_to_1) {
@@ -1661,16 +1663,16 @@ void Interpreter::GfxSpTri1(uint8_t vtx1_idx, uint8_t vtx2_idx, uint8_t vtx3_idx
             bool clampT = tm & (1 << 2 * t + 1);
 
             if (clampS) {
-                mBufVbo[mBufVboLen++] = (tex_width2[t] - 0.5f) / tex_width[t];
+                clamp[t][0] = (tex_width2[t] - 0.5f) / tex_width[t];
             }
 
             if (clampT) {
-                mBufVbo[mBufVboLen++] = (tex_height2[t] - 0.5f) / tex_height[t];
+                clamp[t][1] = (tex_height2[t] - 0.5f) / tex_height[t];
             }
         }
     }
 
-    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp, comb);
+    mRapi->DrawTriangles(mBufVbo, mBufVboLen, 1, mRdp, comb, clamp);
     mBufVboLen = 0;
     mBufVboNumTris = 0;
 }

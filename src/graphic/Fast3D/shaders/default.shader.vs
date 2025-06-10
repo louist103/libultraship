@@ -12,17 +12,6 @@ layout(location = @{get_output_location()}) out vec4 vColor;
     @if(o_textures[i])
         layout(location = @{get_vs_input_location("aTexCoord" + to_string(i), "RG32Float")}) in vec2 aTexCoord@{i};
         layout(location = @{get_output_location()}) out vec2 vTexCoord@{i};
-        @for(j in 0..2)
-            @if(o_clamp[i][j])
-                @if(j == 0)
-                    layout(location = @{get_vs_input_location("aTexClampS" + to_string(i), "R32Float")}) in float aTexClampS@{i};
-                    layout(location = @{get_output_location()}) out float vTexClampS@{i};
-                @else
-                    layout(location = @{get_vs_input_location("aTexClampT" + to_string(i), "R32Float")}) in float aTexClampT@{i};
-                    layout(location = @{get_output_location()}) out float vTexClampT@{i};
-                @end
-            @end
-        @end
     @end
 @end
 
@@ -34,15 +23,6 @@ void main() {
     @for(i in 0..2)
         @if(o_textures[i])
             vTexCoord@{i} = aTexCoord@{i};
-            @for(j in 0..2)
-                @if(o_clamp[i][j])
-                    @if(j == 0)
-                        vTexClampS@{i} = aTexClampS@{i};
-                    @else
-                        vTexClampT@{i} = aTexClampT@{i};
-                    @end
-                @end
-            @end
         @end
     @end
     
