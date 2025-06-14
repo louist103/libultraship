@@ -3985,9 +3985,9 @@ static void gfx_step() {
             (opcode != F3DEX_G_TRI1)) { // TODO: add index buffer cache
             Interpreter* gfx = mInstance.lock().get();
             gfx->chainOfTriangles = false;
-            if (gfx->mTriangleIndices.size() > 5000) {
+            if (gfx->mTriangleIndices.size() > 10000) {
                 printf(
-                    "Warning: SpTri called with more than 5000 indices, this is likely a bug in the ucode handler.\n");
+                    "Warning: SpTri called with more than 10000 indices, this is likely a bug in the ucode handler.\n");
             }
             gfx->GfxSpTri(gfx->mTriangleIndices, false);
             gfx->mTriangleIndices.clear();
