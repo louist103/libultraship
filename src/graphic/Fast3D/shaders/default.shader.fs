@@ -45,11 +45,11 @@ layout(binding = @{get_binding_index("fog_color", "Buffer", "ConstantBuffer")}) 
         @for(j in 0..2)
             @if(o_clamp[i][j])
                 @if(j == 0)
-                    layout(binding = @{get_binding_index("vTexClampS" + to_string(i), "Buffer", "ConstantBuffer")}) uniform TexClampS {
+                    layout(binding = @{get_binding_index("vTexClampS" + to_string(i), "Buffer", "ConstantBuffer")}) uniform TexClampS@{i} {
                         float vTexClampS@{i};
                     };
                 @else
-                    layout(binding = @{get_binding_index("vTexClampT" + to_string(i), "Buffer", "ConstantBuffer")}) uniform TexClampT {
+                    layout(binding = @{get_binding_index("vTexClampT" + to_string(i), "Buffer", "ConstantBuffer")}) uniform TexClampT@{i} {
                         float vTexClampT@{i};
                     };
                 @end
