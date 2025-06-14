@@ -6,6 +6,7 @@
 
 #include <SDL2/SDL_syswm.h>
 #include "sdl_llgl.h"
+#include <spdlog/spdlog.h>
 
 #if defined(LLGL_OS_LINUX) || defined(WIN32)
 LLGL::OpenGL::RenderSystemNativeHandle handle;
@@ -34,9 +35,10 @@ SDLSurface::SDLSurface(const LLGL::Extent2D& size, const char* title, int render
 
     wnd = SDL_CreateWindow(title, 400, 200, (int)size.width, (int)size.height, flags);
     if (wnd == nullptr) {
-        LLGL::Log::Errorf("%s\n", SDL_GetError());
-        LLGL::Log::Errorf("Failed to create SDL2 window\n");
-        exit(1);
+        int len = snprintf(nullptr, 0, "Failed to create window. %s", SDL_GetError());
+        auto str = std::make_unique<char[]>(len);
+        SPDLOG_CRITICAL("{}", str.get());
+        throw std::runtime_error(str.get());
     }
 
     switch (rendererID) {

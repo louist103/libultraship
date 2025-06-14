@@ -345,8 +345,7 @@ void generate_shader_from_string(LLGL::ShaderDescriptor& vertShaderDesc, LLGL::S
     auto fragShaderGlslangIntermediate = fragShaderGlslang.getIntermediate();
 
     if (vertShaderGlslangIntermediate == nullptr || fragShaderGlslangIntermediate == nullptr) {
-        printf("Failed to get intermediate\n");
-        exit(1);
+        throw std::runtime_error("Failed to get intermediate");
     }
 
     spv::SpvBuildLogger logger;
@@ -494,8 +493,7 @@ void generate_shader_from_string(LLGL::ShaderDescriptor& vertShaderDesc, LLGL::S
         fragShaderDesc.profile = "2.1";
         printf("MSL:\n%s\n", std::get<std::string>(fragShader).c_str());
     } else {
-        printf("Unsupported shader language\n");
-        exit(1);
+        throw std::runtime_error("Unknown shader language");        
     }
 }
 

@@ -942,7 +942,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
         llgl_renderer = LLGL::RenderSystem::Load("Null");
         if (!llgl_renderer) {
             SPDLOG_CRITICAL("Failed to load \"Null\" module. Exiting.\n");
-            exit(1);
+            throw std::runtime_error("Failed to load renderer. Exiting");
         }
     }
 

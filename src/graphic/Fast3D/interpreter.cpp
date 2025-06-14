@@ -1321,7 +1321,7 @@ void Interpreter::GfxSpVertex(size_t n_vertices, size_t dest_index, const F3DVtx
 
     struct GfxClipParameters clip_parameters = mRapi->GetClipParameters();
 
-    n64Vertex gpu_vertices[n_vertices];
+    n64Vertex gpu_vertices[MAX_VERTICES];
     for (size_t i = 0; i < n_vertices; i++) {
         const struct LoadedVertex* v = &mRsp->loaded_vertices[dest_index + i];
         float z = v->z, w = v->w;
@@ -2129,7 +2129,7 @@ void Interpreter::GfxDrawRectangle(int32_t ulx, int32_t uly, int32_t lrx, int32_
 
     struct GfxClipParameters clip_parameters = mRapi->GetClipParameters();
 
-    n64Vertex gpu_vertices[n_vertices];
+    n64Vertex gpu_vertices[MAX_VERTICES];
     for (size_t i = 0; i < n_vertices; i++) {
         const struct LoadedVertex* v = &mRsp->loaded_vertices[dest_index + i];
         float z = v->z, w = v->w;
