@@ -89,8 +89,7 @@ class GfxRenderingAPILLGL {
     void SetScissor(int x, int y, int width, int height);
     void SetUseAlpha(bool useAlpha);
     void LoadVertices(n64Vertex* vertices, int offset, size_t num_vertices);
-    void DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb, float clamp[2][2],
-                       texData texDatas[2], int cull_mode);
+    void DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb, int cull_mode);
     void Init();
     void OnResize();
     void StartFrame();
@@ -117,6 +116,8 @@ class GfxRenderingAPILLGL {
     ImTextureID GetTextureById(int id);
     void UpdateFogColor(const float* fogColor);
     void UpdateGrayScaleColor(const float* grayscale_color);
+    void UpdateClamp(int texId, float clamp[2]);
+    void UpdateTexData(int texId, const texData* tex_data);
 
   private:
     int current_tile;

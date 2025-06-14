@@ -789,8 +789,7 @@ void Fast::GfxRenderingAPILLGL::LoadVertices(n64Vertex* vertices, int offset, si
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb,
-                                              float clamp[2][2], texData texDatas[2], int cull_mode) {
+void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb, int cull_mode) {
     llgl_cmdBuffer->UpdateBuffer(*indexBuffer, 0, &index[0], sizeof(int) * index.size());
     llgl_cmdBuffer->SetIndexBuffer(*indexBuffer, LLGL::Format::R32UInt);
     llgl_cmdBuffer->SetPipelineState(
@@ -805,11 +804,9 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist
 
     for (int i = 0; i < 2; i++) {
         if (mCurrentShaderProgram->bindingClamp[i][0].has_value()) {
-            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][0], 0, &clamp[i][0], sizeof(float));
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][0], *clampBuffer[i][0]);
         }
         if (mCurrentShaderProgram->bindingClamp[i][1].has_value()) {
-            llgl_cmdBuffer->UpdateBuffer(*clampBuffer[i][1], 0, &clamp[i][1], sizeof(float));
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][1], *clampBuffer[i][1]);
         }
     }
@@ -901,7 +898,6 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist
                                         *textures[current_texture_ids[i]].first);
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTextureSampl[i],
                                         *textures[current_texture_ids[i]].second);
-            llgl_cmdBuffer->UpdateBuffer(*texDataBuffer[i], 0, &texDatas[i], sizeof(texData));
             llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexData[i], *texDataBuffer[i]);
         }
 
@@ -1279,6 +1275,15 @@ void Fast::GfxRenderingAPILLGL::UpdateFogColor(const float* fog_color) {
 
 void Fast::GfxRenderingAPILLGL::UpdateGrayScaleColor(const float* grayscale_color) {
     llgl_cmdBuffer->UpdateBuffer(*grayScaleBuffer, 0, grayscale_color, sizeof(float) * 4);
+}
+
+void Fast::GfxRenderingAPILLGL::UpdateClamp(int texId, float clamp[2]) {
+    llgl_cmdBuffer->UpdateBuffer(*clampBuffer[texId][0], 0, &clamp[0], sizeof(float));
+    llgl_cmdBuffer->UpdateBuffer(*clampBuffer[texId][1], 0, &clamp[1], sizeof(float));
+}
+
+void Fast::GfxRenderingAPILLGL::UpdateTexData(int texId, const texData* tex_data) {
+    llgl_cmdBuffer->UpdateBuffer(*texDataBuffer[texId], 0, tex_data, sizeof(texData));
 }
 
 } // namespace Fast
