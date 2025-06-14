@@ -14,7 +14,7 @@ layout(location = @{get_vs_input_location("aTexCoord", "RG32Float")}) in vec2 aT
     @if(o_textures[i])
         layout(location = @{get_output_location()}) out vec2 vTexCoord@{i};
         layout(std140, binding = @{get_binding_index("texData" + to_string(i), "Buffer", "ConstantBuffer")}) uniform texData@{i} {
-            float texShift@{i};
+            vec2 texShift@{i};
             vec2 texUl@{i};
             bool texIsRect@{i};
             vec2 texSize@{i};
