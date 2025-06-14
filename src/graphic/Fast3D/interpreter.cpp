@@ -1479,7 +1479,6 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
     uint32_t tm = 0;
     uint32_t tex_width[2], tex_height[2], tex_width2[2], tex_height2[2];
 
-    
     for (int i = 0; i < 2; i++) {
         float clamp[2] = { 0.0f, 0.0f };
         texData texDatas = { 0 };
@@ -1494,40 +1493,40 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                     ImportTexture(SHADER_FIRST_REPLACEMENT_TEXTURE + i, tile, true);
                 }
                 mRdp->textures_changed[i] = false;
-                
+
                 uint8_t cms = mRdp->texture_tile[tile].cms;
                 uint8_t cmt = mRdp->texture_tile[tile].cmt;
-                
+
                 uint32_t tex_size_bytes = mRdp->loaded_texture[mRdp->texture_tile[tile].tmem_index].orig_size_bytes;
                 uint32_t line_size = mRdp->texture_tile[tile].line_size_bytes;
-                
+
                 if (line_size == 0) {
                     line_size = 1;
                 }
-                
+
                 tex_height[i] = tex_size_bytes / line_size;
                 switch (mRdp->texture_tile[tile].siz) {
                     case G_IM_SIZ_4b:
-                    line_size <<= 1;
-                    break;
+                        line_size <<= 1;
+                        break;
                     case G_IM_SIZ_8b:
-                    break;
+                        break;
                     case G_IM_SIZ_16b:
-                    line_size /= G_IM_SIZ_16b_LINE_BYTES;
-                    break;
+                        line_size /= G_IM_SIZ_16b_LINE_BYTES;
+                        break;
                     case G_IM_SIZ_32b:
-                    line_size /= G_IM_SIZ_32b_LINE_BYTES; // this is 2!
-                    tex_height[i] /= 2;
-                    break;
+                        line_size /= G_IM_SIZ_32b_LINE_BYTES; // this is 2!
+                        tex_height[i] /= 2;
+                        break;
                 }
                 tex_width[i] = line_size;
-                
+
                 tex_width2[i] = (mRdp->texture_tile[tile].lrs - mRdp->texture_tile[tile].uls + 4) / 4;
                 tex_height2[i] = (mRdp->texture_tile[tile].lrt - mRdp->texture_tile[tile].ult + 4) / 4;
-                
+
                 uint32_t tex_width1 = tex_width[i] << (cms & G_TX_MIRROR);
                 uint32_t tex_height1 = tex_height[i] << (cmt & G_TX_MIRROR);
-                
+
                 if ((cms & G_TX_CLAMP) && ((cms & G_TX_MIRROR) || tex_width1 != tex_width2[i])) {
                     tm |= 1 << 2 * i;
                     cms &= ~G_TX_CLAMP;
@@ -1536,26 +1535,27 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                     tm |= 1 << 2 * i + 1;
                     cmt &= ~G_TX_CLAMP;
                 }
-                
+
                 if (mRenderingState.mTextures[i] == nullptr) {
                     continue;
                 }
-                
+
                 bool linear_filter = (mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT;
                 if (linear_filter != mRenderingState.mTextures[i]->second.linear_filter ||
-                    cms != mRenderingState.mTextures[i]->second.cms || cmt != mRenderingState.mTextures[i]->second.cmt) {
-                        
-                        // Set the same sampler params on the blended texture. Needed for opengl.
-                        if (mRdp->loaded_texture[i].blended) {
-                            mRapi->SetSamplerParameters(SHADER_FIRST_REPLACEMENT_TEXTURE + i, linear_filter, cms, cmt);
-                        }
-                        
-                        mRapi->SetSamplerParameters(i, linear_filter, cms, cmt);
-                        mRenderingState.mTextures[i]->second.linear_filter = linear_filter;
-                        mRenderingState.mTextures[i]->second.cms = cms;
-                        mRenderingState.mTextures[i]->second.cmt = cmt;
+                    cms != mRenderingState.mTextures[i]->second.cms ||
+                    cmt != mRenderingState.mTextures[i]->second.cmt) {
+
+                    // Set the same sampler params on the blended texture. Needed for opengl.
+                    if (mRdp->loaded_texture[i].blended) {
+                        mRapi->SetSamplerParameters(SHADER_FIRST_REPLACEMENT_TEXTURE + i, linear_filter, cms, cmt);
+                    }
+
+                    mRapi->SetSamplerParameters(i, linear_filter, cms, cmt);
+                    mRenderingState.mTextures[i]->second.linear_filter = linear_filter;
+                    mRenderingState.mTextures[i]->second.cms = cms;
+                    mRenderingState.mTextures[i]->second.cmt = cmt;
                 }
-                
+
                 texDatas.texShift[0] = mRdp->texture_tile[mRdp->first_tile_index + i].shifts;
                 texDatas.texShift[1] = mRdp->texture_tile[mRdp->first_tile_index + i].shiftt;
                 texDatas.texUl[0] = mRdp->texture_tile[mRdp->first_tile_index + i].uls / 4.0f;
@@ -1563,7 +1563,7 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                 texDatas.texIsRect = ((mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) && !is_rect;
                 texDatas.texSize[0] = tex_width[i];
                 texDatas.texSize[1] = tex_height[i];
-                
+
                 clamp[0] = (tex_width2[i] - 0.5f) / tex_width[i];
                 clamp[1] = (tex_height2[i] - 0.5f) / tex_height[i];
                 mRapi->UpdateClamp(i, clamp);
@@ -1571,7 +1571,6 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
             }
         }
     }
-
 
     struct ShaderProgram* prg = comb->prg[tm];
     if (prg == NULL) {
@@ -3970,7 +3969,8 @@ static void gfx_step() {
             gfx->chainOfTriangles = true;
         }
 
-        if (mInstance.lock().get()->chainOfTriangles && (opcode != F3DEX2_G_TRI2) && (opcode != F3DEX2_G_TRI1)) { // TODO: add index buffer cache
+        if (mInstance.lock().get()->chainOfTriangles && (opcode != F3DEX2_G_TRI2) &&
+            (opcode != F3DEX2_G_TRI1)) { // TODO: add index buffer cache
             Interpreter* gfx = mInstance.lock().get();
             gfx->chainOfTriangles = false;
             gfx->GfxSpTri(gfx->mTriangleIndices, false);
@@ -3984,11 +3984,13 @@ static void gfx_step() {
             gfx->chainOfTriangles = true;
         }
 
-        if (mInstance.lock().get()->chainOfTriangles && (opcode != F3DEX_G_TRI2) && (opcode != F3DEX_G_TRI1)) { // TODO: add index buffer cache
+        if (mInstance.lock().get()->chainOfTriangles && (opcode != F3DEX_G_TRI2) &&
+            (opcode != F3DEX_G_TRI1)) { // TODO: add index buffer cache
             Interpreter* gfx = mInstance.lock().get();
             gfx->chainOfTriangles = false;
             if (gfx->mTriangleIndices.size() > 5000) {
-                printf("Warning: SpTri called with more than 5000 indices, this is likely a bug in the ucode handler.\n");
+                printf(
+                    "Warning: SpTri called with more than 5000 indices, this is likely a bug in the ucode handler.\n");
             }
             gfx->GfxSpTri(gfx->mTriangleIndices, false);
             gfx->mTriangleIndices.clear();

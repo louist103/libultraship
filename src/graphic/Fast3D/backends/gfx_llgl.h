@@ -135,6 +135,7 @@ class GfxRenderingAPILLGL {
     bool disable_depth = true;
     bool disable_write_depth = true;
     struct ShaderProgramLLGL* mCurrentShaderProgram = nullptr;
+    LLGL::PipelineState* mPreviousShaderProgram = nullptr;
     std::vector<LLGL::Buffer*> garbage_collection_buffers;
     int frame_count = 0;
     float noise_scale = 0.0f;

@@ -789,27 +789,10 @@ void Fast::GfxRenderingAPILLGL::LoadVertices(n64Vertex* vertices, int offset, si
     llgl_cmdBuffer->SetVertexBuffer(*vertexBuffer);
 }
 
-void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb, int cull_mode) {
+void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist, RDP* rdp, ColorCombiner* comb,
+                                              int cull_mode) {
     llgl_cmdBuffer->UpdateBuffer(*indexBuffer, 0, &index[0], sizeof(int) * index.size());
     llgl_cmdBuffer->SetIndexBuffer(*indexBuffer, LLGL::Format::R32UInt);
-    llgl_cmdBuffer->SetPipelineState(
-        *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]);
-
-    llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
-    llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
-
-    if (mCurrentShaderProgram->grayScaleBinding.has_value()) {
-        llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (mCurrentShaderProgram->bindingClamp[i][0].has_value()) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][0], *clampBuffer[i][0]);
-        }
-        if (mCurrentShaderProgram->bindingClamp[i][1].has_value()) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][1], *clampBuffer[i][1]);
-        }
-    }
 
     for (int j = 0; j < mCurrentShaderProgram->numInputs; j++) {
         RGBA* color;
@@ -882,42 +865,67 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist
         }
     }
 
-    if (mCurrentShaderProgram->bindingFogColor.has_value()) {
-        llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingFogColor, *fogColorBuffer);
+    if (mPreviousShaderProgram !=
+        mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]) {
+
+        llgl_cmdBuffer->SetPipelineState(
+            *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]);
+
+        llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
+        llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
+
+        if (mCurrentShaderProgram->grayScaleBinding.has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
+        }
+
+        for (int i = 0; i < 2; i++) {
+            if (mCurrentShaderProgram->bindingClamp[i][0].has_value()) {
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][0], *clampBuffer[i][0]);
+            }
+            if (mCurrentShaderProgram->bindingClamp[i][1].has_value()) {
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][1], *clampBuffer[i][1]);
+            }
+        }
+
+        if (mCurrentShaderProgram->bindingFogColor.has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingFogColor, *fogColorBuffer);
+        }
+
+        for (int i = 0; i < mCurrentShaderProgram->numInputs; i++) {
+            if (mCurrentShaderProgram->bindingInput[i].has_value()) {
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingInput[i], *shader_input[i]);
+            }
+        }
+
+        for (int i = 0; i < 2; i++) {
+            if (mCurrentShaderProgram->bindingTexture[i].has_value() &&
+                textures[current_texture_ids[i]].first != nullptr) {
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i],
+                                            *textures[current_texture_ids[i]].first);
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTextureSampl[i],
+                                            *textures[current_texture_ids[i]].second);
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexData[i], *texDataBuffer[i]);
+            }
+
+            if (mCurrentShaderProgram->bindingMask[i].has_value() &&
+                textures[current_texture_ids[2 + i]].first != nullptr) {
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i],
+                                            *textures[current_texture_ids[2 + i]].first);
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMaskSampl[i],
+                                            *textures[current_texture_ids[2 + i]].second);
+            }
+
+            if (mCurrentShaderProgram->bindingBlend[i].has_value() &&
+                textures[current_texture_ids[4 + i]].first != nullptr) {
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i],
+                                            *textures[current_texture_ids[4 + i]].first);
+                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlendSampl[i],
+                                            *textures[current_texture_ids[4 + i]].second);
+            }
+        }
+        mPreviousShaderProgram =
+            mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode];
     }
-
-    for (int i = 0; i < mCurrentShaderProgram->numInputs; i++) {
-        if (mCurrentShaderProgram->bindingInput[i].has_value()) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingInput[i], *shader_input[i]);
-        }
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (mCurrentShaderProgram->bindingTexture[i].has_value() && textures[current_texture_ids[i]].first != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexture[i],
-                                        *textures[current_texture_ids[i]].first);
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTextureSampl[i],
-                                        *textures[current_texture_ids[i]].second);
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingTexData[i], *texDataBuffer[i]);
-        }
-
-        if (mCurrentShaderProgram->bindingMask[i].has_value() &&
-            textures[current_texture_ids[2 + i]].first != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMask[i],
-                                        *textures[current_texture_ids[2 + i]].first);
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingMaskSampl[i],
-                                        *textures[current_texture_ids[2 + i]].second);
-        }
-
-        if (mCurrentShaderProgram->bindingBlend[i].has_value() &&
-            textures[current_texture_ids[4 + i]].first != nullptr) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlend[i],
-                                        *textures[current_texture_ids[4 + i]].first);
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingBlendSampl[i],
-                                        *textures[current_texture_ids[4 + i]].second);
-        }
-    }
-
     llgl_cmdBuffer->DrawIndexed(index.size(), 0);
 }
 
