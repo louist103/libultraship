@@ -34,7 +34,7 @@ struct pair_int64_hash {
 };
 
 struct texData {
-    int texShift[2];
+    float texShift[2];
     float texUl[2];
     int texIsRect;
     int _offset;

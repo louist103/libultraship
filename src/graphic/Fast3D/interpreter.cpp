@@ -1573,6 +1573,27 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                 mRenderingState.mTextures[i]->second.cmt = cmt;
             }
 
+            int shifts = mRdp->texture_tile[mRdp->first_tile_index + i].shifts;
+            int shiftt = mRdp->texture_tile[mRdp->first_tile_index + i].shiftt;
+
+            float shift_s = 1.0f;
+            float shift_t = 1.0f;
+
+            if (shifts != 0) {
+                if (shifts <= 10) {
+                    shift_s = 1.0f / (float) ( 1 << shifts);
+                } else {
+                    shift_s = 1 << (16 - shifts);
+                }
+            }
+            if (shiftt != 0) {
+                if (shiftt <= 10) {
+                    shift_s = 1.0f / (float) (1 << shiftt);
+                } else {
+                    shift_s = 1 << (16 - shiftt);
+                }
+            }
+
             texDatas.texShift[0] = mRdp->texture_tile[mRdp->first_tile_index + i].shifts;
             texDatas.texShift[1] = mRdp->texture_tile[mRdp->first_tile_index + i].shiftt;
             texDatas.texUl[0] = mRdp->texture_tile[mRdp->first_tile_index + i].uls / 4.0f;
