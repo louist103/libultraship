@@ -1050,7 +1050,7 @@ void Fast::GfxRenderingAPILLGL::Init() {
     {
         indexBufferDesc.debugName = "index_buffer";
         indexBufferDesc.bindFlags = LLGL::BindFlags::IndexBuffer;
-        indexBufferDesc.size = sizeof(std::uint32_t) * 80;
+        indexBufferDesc.size = sizeof(std::uint32_t) * 5000;
         indexBufferDesc.format = LLGL::Format::R32UInt;
     }
     indexBuffer = llgl_renderer->CreateBuffer(indexBufferDesc);
