@@ -1477,7 +1477,6 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
     ColorCombiner* comb = LookupOrCreateColorCombiner(key);
 
     uint32_t tm = 0;
-    uint32_t tex_width[2], tex_height[2], tex_width2[2], tex_height2[2];
 
     for (int i = 0; i < 2; i++) {
         float clamp[2] = { 0.0f, 0.0f };
@@ -1504,7 +1503,7 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                     line_size = 1;
                 }
 
-                tex_height[i] = tex_size_bytes / line_size;
+                uint32_t tex_height = tex_size_bytes / line_size;
                 switch (mRdp->texture_tile[tile].siz) {
                     case G_IM_SIZ_4b:
                         line_size <<= 1;
@@ -1516,22 +1515,22 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                         break;
                     case G_IM_SIZ_32b:
                         line_size /= G_IM_SIZ_32b_LINE_BYTES; // this is 2!
-                        tex_height[i] /= 2;
+                        tex_height /= 2;
                         break;
                 }
-                tex_width[i] = line_size;
+                uint32_t tex_width = line_size;
 
-                tex_width2[i] = (mRdp->texture_tile[tile].lrs - mRdp->texture_tile[tile].uls + 4) / 4;
-                tex_height2[i] = (mRdp->texture_tile[tile].lrt - mRdp->texture_tile[tile].ult + 4) / 4;
+                uint32_t tex_width2 = (mRdp->texture_tile[tile].lrs - mRdp->texture_tile[tile].uls + 4) / 4;
+                uint32_t tex_height2 = (mRdp->texture_tile[tile].lrt - mRdp->texture_tile[tile].ult + 4) / 4;
 
-                uint32_t tex_width1 = tex_width[i] << (cms & G_TX_MIRROR);
-                uint32_t tex_height1 = tex_height[i] << (cmt & G_TX_MIRROR);
+                uint32_t tex_width1 = tex_width << (cms & G_TX_MIRROR);
+                uint32_t tex_height1 = tex_height << (cmt & G_TX_MIRROR);
 
-                if ((cms & G_TX_CLAMP) && ((cms & G_TX_MIRROR) || tex_width1 != tex_width2[i])) {
+                if ((cms & G_TX_CLAMP) && ((cms & G_TX_MIRROR) || tex_width1 != tex_width2)) {
                     tm |= 1 << 2 * i;
                     cms &= ~G_TX_CLAMP;
                 }
-                if ((cmt & G_TX_CLAMP) && ((cmt & G_TX_MIRROR) || tex_height1 != tex_height2[i])) {
+                if ((cmt & G_TX_CLAMP) && ((cmt & G_TX_MIRROR) || tex_height1 != tex_height2)) {
                     tm |= 1 << 2 * i + 1;
                     cmt &= ~G_TX_CLAMP;
                 }
@@ -1561,11 +1560,11 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                 texDatas.texUl[0] = mRdp->texture_tile[mRdp->first_tile_index + i].uls / 4.0f;
                 texDatas.texUl[1] = mRdp->texture_tile[mRdp->first_tile_index + i].ult / 4.0f;
                 texDatas.texIsRect = ((mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) && !is_rect;
-                texDatas.texSize[0] = tex_width[i];
-                texDatas.texSize[1] = tex_height[i];
+                texDatas.texSize[0] = tex_width;
+                texDatas.texSize[1] = tex_height;
 
-                clamp[0] = (tex_width2[i] - 0.5f) / tex_width[i];
-                clamp[1] = (tex_height2[i] - 0.5f) / tex_height[i];
+                clamp[0] = (tex_width2 - 0.5f) / tex_width;
+                clamp[1] = (tex_height2 - 0.5f) / tex_height;
                 mRapi->UpdateClamp(i, clamp);
                 mRapi->UpdateTexData(i, &texDatas);
             }
