@@ -1588,8 +1588,6 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
     }
 
     mRapi->DrawTriangles(idx, v1->w, mRdp, comb, (int)cull);
-    mBufVboLen = 0;
-    mBufVboNumTris = 0;
 }
 
 void Interpreter::GfxSpGeometryMode(uint32_t clear, uint32_t set) {

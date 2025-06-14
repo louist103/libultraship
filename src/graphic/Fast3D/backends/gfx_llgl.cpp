@@ -865,40 +865,33 @@ void Fast::GfxRenderingAPILLGL::DrawTriangles(std::vector<int> index, float dist
         }
     }
 
-    if (mPreviousShaderProgram !=
-        mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]) {
+    llgl_cmdBuffer->SetPipelineState(
+        *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]);
 
-        llgl_cmdBuffer->SetPipelineState(
-            *mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode]);
+    llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
+    llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
 
-        llgl_cmdBuffer->SetResource(mCurrentShaderProgram->frameCountBinding, *frameCountBuffer);
-        llgl_cmdBuffer->SetResource(mCurrentShaderProgram->noiseScaleBinding, *noiseScaleBuffer);
+    if (mCurrentShaderProgram->grayScaleBinding.has_value()) {
+        llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
+    }
 
-        if (mCurrentShaderProgram->grayScaleBinding.has_value()) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->grayScaleBinding, *grayScaleBuffer);
+    for (int i = 0; i < 2; i++) {
+        if (mCurrentShaderProgram->bindingClamp[i][0].has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][0], *clampBuffer[i][0]);
         }
-
-        for (int i = 0; i < 2; i++) {
-            if (mCurrentShaderProgram->bindingClamp[i][0].has_value()) {
-                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][0], *clampBuffer[i][0]);
-            }
-            if (mCurrentShaderProgram->bindingClamp[i][1].has_value()) {
-                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][1], *clampBuffer[i][1]);
-            }
+        if (mCurrentShaderProgram->bindingClamp[i][1].has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingClamp[i][1], *clampBuffer[i][1]);
         }
+    }
 
-        if (mCurrentShaderProgram->bindingFogColor.has_value()) {
-            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingFogColor, *fogColorBuffer);
+    if (mCurrentShaderProgram->bindingFogColor.has_value()) {
+        llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingFogColor, *fogColorBuffer);
+    }
+
+    for (int i = 0; i < mCurrentShaderProgram->numInputs; i++) {
+        if (mCurrentShaderProgram->bindingInput[i].has_value()) {
+            llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingInput[i], *shader_input[i]);
         }
-
-        for (int i = 0; i < mCurrentShaderProgram->numInputs; i++) {
-            if (mCurrentShaderProgram->bindingInput[i].has_value()) {
-                llgl_cmdBuffer->SetResource(*mCurrentShaderProgram->bindingInput[i], *shader_input[i]);
-            }
-        }
-
-        mPreviousShaderProgram =
-            mCurrentShaderProgram->pipeline[disable_depth ? 0 : 1][disable_write_depth ? 0 : 1][cull_mode];
     }
 
     for (int i = 0; i < 2; i++) {
