@@ -725,20 +725,29 @@ void Interpreter::ImportTextureCi4(int tile, bool importReplacement) {
     else
         palette = mRdp->palettes[palIdx / 8] + (palIdx % 8) * 16 * 2;
 
+    float palette_rgba[16][4];
+    for (uint32_t i = 0; i < 16; i++) {
+        uint16_t col16 = (palette[i * 2] << 8) | palette[i * 2 + 1]; // Big endian load
+        uint8_t a = col16 & 1;
+        uint8_t r = col16 >> 11;
+        uint8_t g = (col16 >> 6) & 0x1f;
+        uint8_t b = (col16 >> 1) & 0x1f;
+        palette_rgba[i][0] = SCALE_5_8(r);
+        palette_rgba[i][1] = SCALE_5_8(g);
+        palette_rgba[i][2] = SCALE_5_8(b);
+        palette_rgba[i][3] = a ? 255 : 0;
+    }
+
     SUPPORT_CHECK(fullImageLineSizeBytes == lineSizeBytes);
 
     for (uint32_t i = 0; i < sizeBytes * 2; i++) {
         uint8_t byte = addr[i / 2];
         uint8_t idx = (byte >> (4 - (i % 2) * 4)) & 0xf;
-        uint16_t col16 = (palette[idx * 2] << 8) | palette[idx * 2 + 1]; // Big endian load
-        uint8_t a = col16 & 1;
-        uint8_t r = col16 >> 11;
-        uint8_t g = (col16 >> 6) & 0x1f;
-        uint8_t b = (col16 >> 1) & 0x1f;
-        mTexUploadBuffer[4 * i + 0] = SCALE_5_8(r);
-        mTexUploadBuffer[4 * i + 1] = SCALE_5_8(g);
-        mTexUploadBuffer[4 * i + 2] = SCALE_5_8(b);
-        mTexUploadBuffer[4 * i + 3] = a ? 255 : 0;
+        const float* col = palette_rgba[idx];
+        mTexUploadBuffer[4 * i + 0] = col[0];
+        mTexUploadBuffer[4 * i + 1] = col[1];
+        mTexUploadBuffer[4 * i + 2] = col[2];
+        mTexUploadBuffer[4 * i + 3] = col[3];
     }
 
     uint32_t resultLineSizeBytes = mRdp->texture_tile[tile].line_size_bytes;
@@ -763,19 +772,28 @@ void Interpreter::ImportTextureCi8(int tile, bool importReplacement) {
         mRdp->loaded_texture[mRdp->texture_tile[tile].tmem_index].full_image_line_size_bytes;
     uint32_t lineSizeBytes = mRdp->loaded_texture[mRdp->texture_tile[tile].tmem_index].line_size_bytes;
 
+    float palette_rgba[256][4];
+    for (uint32_t i = 0; i < 256; i++) {
+        uint16_t col16 = (mRdp->palettes[i / 128][(i % 128) * 2] << 8) |
+                         mRdp->palettes[i / 128][(i % 128) * 2 + 1]; // Big endian load
+        uint8_t a = col16 & 1;
+        uint8_t r = col16 >> 11;
+        uint8_t g = (col16 >> 6) & 0x1f;
+        uint8_t b = (col16 >> 1) & 0x1f;
+        palette_rgba[i][0] = SCALE_5_8(r);
+        palette_rgba[i][1] = SCALE_5_8(g);
+        palette_rgba[i][2] = SCALE_5_8(b);
+        palette_rgba[i][3] = a ? 255 : 0;
+    }
+
     for (uint32_t i = 0, j = 0; i < sizeBytes; j += fullImageLineSizeBytes - lineSizeBytes) {
         for (uint32_t k = 0; k < lineSizeBytes; i++, k++, j++) {
             uint8_t idx = addr[j];
-            uint16_t col16 = (mRdp->palettes[idx / 128][(idx % 128) * 2] << 8) |
-                             mRdp->palettes[idx / 128][(idx % 128) * 2 + 1]; // Big endian load
-            uint8_t a = col16 & 1;
-            uint8_t r = col16 >> 11;
-            uint8_t g = (col16 >> 6) & 0x1f;
-            uint8_t b = (col16 >> 1) & 0x1f;
-            mTexUploadBuffer[4 * i + 0] = SCALE_5_8(r);
-            mTexUploadBuffer[4 * i + 1] = SCALE_5_8(g);
-            mTexUploadBuffer[4 * i + 2] = SCALE_5_8(b);
-            mTexUploadBuffer[4 * i + 3] = a ? 255 : 0;
+            const float* col = palette_rgba[idx];
+            mTexUploadBuffer[4 * i + 0] = col[0];
+            mTexUploadBuffer[4 * i + 1] = col[1];
+            mTexUploadBuffer[4 * i + 2] = col[2];
+            mTexUploadBuffer[4 * i + 3] = col[3];
         }
     }
 
@@ -1492,82 +1510,81 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                     ImportTexture(SHADER_FIRST_REPLACEMENT_TEXTURE + i, tile, true);
                 }
                 mRdp->textures_changed[i] = false;
-
-                uint8_t cms = mRdp->texture_tile[tile].cms;
-                uint8_t cmt = mRdp->texture_tile[tile].cmt;
-
-                uint32_t tex_size_bytes = mRdp->loaded_texture[mRdp->texture_tile[tile].tmem_index].orig_size_bytes;
-                uint32_t line_size = mRdp->texture_tile[tile].line_size_bytes;
-
-                if (line_size == 0) {
-                    line_size = 1;
-                }
-
-                uint32_t tex_height = tex_size_bytes / line_size;
-                switch (mRdp->texture_tile[tile].siz) {
-                    case G_IM_SIZ_4b:
-                        line_size <<= 1;
-                        break;
-                    case G_IM_SIZ_8b:
-                        break;
-                    case G_IM_SIZ_16b:
-                        line_size /= G_IM_SIZ_16b_LINE_BYTES;
-                        break;
-                    case G_IM_SIZ_32b:
-                        line_size /= G_IM_SIZ_32b_LINE_BYTES; // this is 2!
-                        tex_height /= 2;
-                        break;
-                }
-                uint32_t tex_width = line_size;
-
-                uint32_t tex_width2 = (mRdp->texture_tile[tile].lrs - mRdp->texture_tile[tile].uls + 4) / 4;
-                uint32_t tex_height2 = (mRdp->texture_tile[tile].lrt - mRdp->texture_tile[tile].ult + 4) / 4;
-
-                uint32_t tex_width1 = tex_width << (cms & G_TX_MIRROR);
-                uint32_t tex_height1 = tex_height << (cmt & G_TX_MIRROR);
-
-                if ((cms & G_TX_CLAMP) && ((cms & G_TX_MIRROR) || tex_width1 != tex_width2)) {
-                    tm |= 1 << 2 * i;
-                    cms &= ~G_TX_CLAMP;
-                }
-                if ((cmt & G_TX_CLAMP) && ((cmt & G_TX_MIRROR) || tex_height1 != tex_height2)) {
-                    tm |= 1 << 2 * i + 1;
-                    cmt &= ~G_TX_CLAMP;
-                }
-
-                if (mRenderingState.mTextures[i] == nullptr) {
-                    continue;
-                }
-
-                bool linear_filter = (mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT;
-                if (linear_filter != mRenderingState.mTextures[i]->second.linear_filter ||
-                    cms != mRenderingState.mTextures[i]->second.cms ||
-                    cmt != mRenderingState.mTextures[i]->second.cmt) {
-
-                    // Set the same sampler params on the blended texture. Needed for opengl.
-                    if (mRdp->loaded_texture[i].blended) {
-                        mRapi->SetSamplerParameters(SHADER_FIRST_REPLACEMENT_TEXTURE + i, linear_filter, cms, cmt);
-                    }
-
-                    mRapi->SetSamplerParameters(i, linear_filter, cms, cmt);
-                    mRenderingState.mTextures[i]->second.linear_filter = linear_filter;
-                    mRenderingState.mTextures[i]->second.cms = cms;
-                    mRenderingState.mTextures[i]->second.cmt = cmt;
-                }
-
-                texDatas.texShift[0] = mRdp->texture_tile[mRdp->first_tile_index + i].shifts;
-                texDatas.texShift[1] = mRdp->texture_tile[mRdp->first_tile_index + i].shiftt;
-                texDatas.texUl[0] = mRdp->texture_tile[mRdp->first_tile_index + i].uls / 4.0f;
-                texDatas.texUl[1] = mRdp->texture_tile[mRdp->first_tile_index + i].ult / 4.0f;
-                texDatas.texIsRect = ((mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) && !is_rect;
-                texDatas.texSize[0] = tex_width;
-                texDatas.texSize[1] = tex_height;
-
-                clamp[0] = (tex_width2 - 0.5f) / tex_width;
-                clamp[1] = (tex_height2 - 0.5f) / tex_height;
-                mRapi->UpdateClamp(i, clamp);
-                mRapi->UpdateTexData(i, &texDatas);
             }
+
+            uint8_t cms = mRdp->texture_tile[tile].cms;
+            uint8_t cmt = mRdp->texture_tile[tile].cmt;
+
+            uint32_t tex_size_bytes = mRdp->loaded_texture[mRdp->texture_tile[tile].tmem_index].orig_size_bytes;
+            uint32_t line_size = mRdp->texture_tile[tile].line_size_bytes;
+
+            if (line_size == 0) {
+                line_size = 1;
+            }
+
+            uint32_t tex_height = tex_size_bytes / line_size;
+            switch (mRdp->texture_tile[tile].siz) {
+                case G_IM_SIZ_4b:
+                    line_size <<= 1;
+                    break;
+                case G_IM_SIZ_8b:
+                    break;
+                case G_IM_SIZ_16b:
+                    line_size /= G_IM_SIZ_16b_LINE_BYTES;
+                    break;
+                case G_IM_SIZ_32b:
+                    line_size /= G_IM_SIZ_32b_LINE_BYTES; // this is 2!
+                    tex_height /= 2;
+                    break;
+            }
+            uint32_t tex_width = line_size;
+
+            uint32_t tex_width2 = (mRdp->texture_tile[tile].lrs - mRdp->texture_tile[tile].uls + 4) / 4;
+            uint32_t tex_height2 = (mRdp->texture_tile[tile].lrt - mRdp->texture_tile[tile].ult + 4) / 4;
+
+            uint32_t tex_width1 = tex_width << (cms & G_TX_MIRROR);
+            uint32_t tex_height1 = tex_height << (cmt & G_TX_MIRROR);
+
+            if ((cms & G_TX_CLAMP) && ((cms & G_TX_MIRROR) || tex_width1 != tex_width2)) {
+                tm |= 1 << 2 * i;
+                cms &= ~G_TX_CLAMP;
+            }
+            if ((cmt & G_TX_CLAMP) && ((cmt & G_TX_MIRROR) || tex_height1 != tex_height2)) {
+                tm |= 1 << 2 * i + 1;
+                cmt &= ~G_TX_CLAMP;
+            }
+
+            if (mRenderingState.mTextures[i] == nullptr) {
+                continue;
+            }
+
+            bool linear_filter = (mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT;
+            if (linear_filter != mRenderingState.mTextures[i]->second.linear_filter ||
+                cms != mRenderingState.mTextures[i]->second.cms || cmt != mRenderingState.mTextures[i]->second.cmt) {
+
+                // Set the same sampler params on the blended texture. Needed for opengl.
+                if (mRdp->loaded_texture[i].blended) {
+                    mRapi->SetSamplerParameters(SHADER_FIRST_REPLACEMENT_TEXTURE + i, linear_filter, cms, cmt);
+                }
+
+                mRapi->SetSamplerParameters(i, linear_filter, cms, cmt);
+                mRenderingState.mTextures[i]->second.linear_filter = linear_filter;
+                mRenderingState.mTextures[i]->second.cms = cms;
+                mRenderingState.mTextures[i]->second.cmt = cmt;
+            }
+
+            texDatas.texShift[0] = mRdp->texture_tile[mRdp->first_tile_index + i].shifts;
+            texDatas.texShift[1] = mRdp->texture_tile[mRdp->first_tile_index + i].shiftt;
+            texDatas.texUl[0] = mRdp->texture_tile[mRdp->first_tile_index + i].uls / 4.0f;
+            texDatas.texUl[1] = mRdp->texture_tile[mRdp->first_tile_index + i].ult / 4.0f;
+            texDatas.texIsRect = ((mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) && !is_rect;
+            texDatas.texSize[0] = tex_width;
+            texDatas.texSize[1] = tex_height;
+
+            clamp[0] = (tex_width2 - 0.5f) / tex_width;
+            clamp[1] = (tex_height2 - 0.5f) / tex_height;
+            mRapi->UpdateClamp(i, clamp);
+            mRapi->UpdateTexData(i, &texDatas);
         }
     }
 
