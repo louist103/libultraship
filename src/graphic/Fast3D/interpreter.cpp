@@ -1594,8 +1594,8 @@ void Interpreter::GfxSpTri(std::vector<int> idx, bool is_rect) {
                 }
             }
 
-            texDatas.texShift[0] = mRdp->texture_tile[mRdp->first_tile_index + i].shifts;
-            texDatas.texShift[1] = mRdp->texture_tile[mRdp->first_tile_index + i].shiftt;
+            texDatas.texShift[0] = shift_s;
+            texDatas.texShift[1] = shift_t;
             texDatas.texUl[0] = mRdp->texture_tile[mRdp->first_tile_index + i].uls / 4.0f;
             texDatas.texUl[1] = mRdp->texture_tile[mRdp->first_tile_index + i].ult / 4.0f;
             texDatas.texIsRect = ((mRdp->other_mode_h & (3U << G_MDSFT_TEXTFILT)) != G_TF_POINT) && !is_rect;
