@@ -15,4 +15,11 @@ class ResourceFactoryBinaryTextureV1 final : public Ship::ResourceFactoryBinary 
     std::shared_ptr<Ship::IResource> ReadResource(std::shared_ptr<Ship::File> file,
                                                   std::shared_ptr<Ship::ResourceInitData> initData) override;
 };
+
+class ResourceFactoryBinaryTextureV2 final : public Ship::ResourceFactoryBinary {
+  public:
+    std::shared_ptr<Ship::IResource> ReadResource(std::shared_ptr<Ship::File> file,
+                                                      std::shared_ptr<Ship::ResourceInitData> initData) override;
+    };
+
 } // namespace Fast

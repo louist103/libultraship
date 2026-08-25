@@ -178,6 +178,7 @@ double Ship::BinaryReader::ReadDouble() {
 std::string Ship::BinaryReader::ReadString() {
     std::string res;
     int numChars = ReadInt32();
+    res.reserve(numChars);
     for (int i = 0; i < numChars; i++) {
         res += ReadChar();
     }

@@ -35,8 +35,12 @@ class Texture final : public Ship::Resource<uint8_t> {
     uint32_t Flags = 0;
     float HByteScale = 1.0;
     float VPixelScale = 1.0;
+    uint32_t atlasX = -1;
+    uint32_t atlasY = -1;
     uint32_t ImageDataSize;
     uint8_t* ImageData = nullptr;
+    // When using atlased textures, this is a string to the "parent" atlas so it can be loaded by Fast3D.
+    std::shared_ptr<Texture> mParentAtlas;
     // When set, ImageData points into this buffer and must not be delete[]-ed.
     std::shared_ptr<std::vector<char>> mImageBuffer;
 
